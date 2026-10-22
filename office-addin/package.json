@@ -8,7 +8,7 @@
     "cert": "office-addin-dev-certs install",
     "cert:verify": "office-addin-dev-certs verify",
     "test": "node --test",
-    "lint": "node --check citation.js && node --check taskpane.js && node --check dev-server.mjs",
+    "lint": "node --check citation.js && node --check taskpane.js && node --check server-path.mjs && node --check dev-server.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "check": "npm run lint && npm test && npm run validate"
   },

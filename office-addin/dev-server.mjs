@@ -1,11 +1,15 @@
 import { createServer } from 'node:https';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
+import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getHttpsServerOptions } from 'office-addin-dev-certs';
+import { requestPath } from './server-path.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
-const port = 3000;
+const port = Number.parseInt(process.env.BIBWORD_PORT || '3000', 10);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error('BIBWORD_PORT must be an integer between 1 and 65535.');
+}
 const mimeTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],
@@ -14,18 +18,10 @@ const mimeTypes = new Map([
   ['.xml', 'application/xml; charset=utf-8'],
 ]);
 
-function localPath(requestUrl) {
-  const pathname = decodeURIComponent(new URL(requestUrl, `https://localhost:${port}`).pathname);
-  const requested = pathname === '/' ? 'taskpane.html' : pathname.replace(/^\/+/, '');
-  const candidate = resolve(root, requested);
-  if (candidate !== root && !candidate.startsWith(root + sep)) return null;
-  return candidate;
-}
-
 const options = await getHttpsServerOptions();
 const server = createServer(options, async (request, response) => {
   try {
-    const path = localPath(request.url || '/');
+    const path = requestPath(root, request.url || '/', port);
     if (!path || !(await stat(path)).isFile()) throw new Error('not found');
     const body = await readFile(path);
     response.writeHead(200, {
