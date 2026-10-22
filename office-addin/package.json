@@ -1,0 +1,22 @@
+{
+  "name": "bibword-office-addin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Minimal experimental Word/Word web task-pane for BibWord",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "cert": "office-addin-dev-certs install",
+    "cert:verify": "office-addin-dev-certs verify",
+    "test": "node --test",
+    "lint": "node --check citation.js && node --check taskpane.js && node --check dev-server.mjs",
+    "validate": "office-addin-manifest validate manifest.xml",
+    "check": "npm run lint && npm test && npm run validate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "office-addin-dev-certs": "^3.0.1",
+    "office-addin-manifest": "^3.0.1"
+  }
+}

@@ -1,0 +1,22 @@
+:root { font-family: Segoe UI, Arial, sans-serif; color: #192b37; background: #f7f9fc; }
+* { box-sizing: border-box; }
+body { margin:0; }
+main { max-width: 520px; margin: auto; padding: 22px 18px; }
+header { padding: 8px 0 12px; border-bottom: 1px solid #cdd8e3; }
+h1 { font-size: 21px; line-height:1.18; margin:6px 0 7px; }
+header p { color:#425969; margin:0 0 8px; font-size:13px; }
+.eyebrow { font-size:10px; font-weight:700; letter-spacing:.13em; color:#42637c; }
+section { background:white; border:1px solid #dfe7ef; border-radius:9px; padding:16px; margin-top:14px; }
+h2 { font-size:14px; margin:0 0 13px; }
+label { display:block; font-size:12px; font-weight:600; margin:12px 0 5px; }
+input, select { background:#fff; border:1px solid #abbccc; border-radius:5px; padding:9px; width:100%; font-size:13px; color:#223847; }
+input[type=file] { padding:8px 0; border:0; }
+small { display:block; font-size:11px; color:#637485; margin-top:6px; }
+code,output { font-family:Consolas, 'Liberation Mono', monospace; }
+.preview-label { font-size:11px; font-weight:700; margin:18px 0 7px; color:#557084; }
+output { display:block; background:#eaf1f8; padding:12px; border-radius:5px; min-height:45px; overflow-wrap:anywhere; font-size:13px; color:#174970; }
+button { display:block; width:100%; margin-top:14px; padding:11px; color:#fff; background:#174f79; font-weight:700; border:0; border-radius:5px; cursor:pointer; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+#status { margin:8px 0 0; font-size:12px; min-height:18px; }
+#status.error { color:#b52a29; }
+footer { padding:16px 4px; color:#657584; font-size:11px; line-height:1.5; }

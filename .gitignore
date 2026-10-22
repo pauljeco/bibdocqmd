@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Node / Office add-in development
+office-addin/node_modules/
+office-addin/*.crt
+office-addin/*.key
+office-addin/*.pem
+npm-debug.log*
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build and temporary output
+build/
+dist/
+tmp/
+*.log

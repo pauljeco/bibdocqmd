@@ -1,0 +1,39 @@
+---
+title: "BibWord: Quarto syntax in Microsoft Word"
+bibliography: "references.bib"
+format:
+  html: default
+  docx: default
+---
+
+This DOCX demonstrates citations displayed exactly as Quarto/Pandoc markup. Blue monospaced snippets are managed Word content controls, not ordinary pasted text.
+
+# Example citations
+
+Narrative citation: @smith2020 describes an illustrative workflow.
+
+Parenthetical citation: an illustrative statement [@smith2020].
+
+Grouped citation: this example draws on two sample records [@smith2020; @jones2022].
+
+With a page locator: [@jones2022, p. 45].
+
+Suppress author: Jones is mentioned separately, then [-@jones2022] can be used to show only the year after processing.
+
+# Document structure
+
+Normal paragraphs, headings and tables are converted using Pandoc; citation content controls are restored as native Pandoc Cite nodes.
+
+  -----------------------------------------------------------------------
+  Word feature                        Quarto result
+  ----------------------------------- -----------------------------------
+  Heading 1                           \# Heading
+
+  Managed citation                    Native Pandoc citation
+
+  Table                               Markdown table
+  -----------------------------------------------------------------------
+
+-   First conceptual deliverable
+
+-   First tested conversion

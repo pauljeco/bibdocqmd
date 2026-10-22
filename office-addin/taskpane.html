@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BibWord prototype</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">BIBWORD / PROTOTYPE v0.1</div>
+      <h1>Quarto citations in Word</h1>
+      <p>Keep your <code>@citationKeys</code> visible, just as they appear in Quarto.</p>
+    </header>
+    <section aria-labelledby="library-heading">
+      <h2 id="library-heading">1. Select a BibTeX library</h2>
+      <label for="bib-file">Choose a <code>.bib</code> file</label>
+      <input id="bib-file" type="file" accept=".bib,.bibtex,text/plain" />
+      <small id="library-status">No library selected. You can still enter a citation key manually.</small>
+    </section>
+    <section aria-labelledby="citation-heading">
+      <h2 id="citation-heading">2. Insert a citation</h2>
+      <label for="citation-keys">Citation keys</label>
+      <input id="citation-keys" list="known-keys" autocomplete="off" spellcheck="false"
+             placeholder="smith2020; jones2022" />
+      <datalist id="known-keys"></datalist>
+      <small>Use a semicolon to separate multiple keys.</small>
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="parenthetical">Parenthetical: [@key]</option>
+        <option value="narrative">Narrative: @key</option>
+        <option value="suppress">Suppress author: [-@key]</option>
+      </select>
+      <label for="locator">Locator (optional)</label>
+      <input id="locator" type="text" placeholder="p. 45" />
+      <div class="preview-label">Word display / Quarto syntax</div>
+      <output id="citation-preview">[@key]</output>
+      <button id="insert" type="button" disabled>Insert into Word</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <footer>
+      Citations are stored as Word content controls with visible Pandoc citation syntax.
+      Export uses the companion <code>bibword_export.py</code> converter.
+    </footer>
+  </main>
+  <script src="citation.js"></script>
+  <script src="taskpane.js"></script>
+</body>
+</html>

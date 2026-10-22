@@ -1,0 +1,61 @@
+<p>This DOCX demonstrates citations displayed exactly as Quarto/Pandoc
+markup. Blue monospaced snippets are managed Word content controls, not
+ordinary pasted text.</p>
+<h1 id="example-citations">Example citations</h1>
+<p>Narrative citation: <span class="citation"
+data-cites="smith2020">Smith (2020)</span> describes an illustrative
+workflow.</p>
+<p>Parenthetical citation: an illustrative statement <span
+class="citation" data-cites="smith2020">(Smith 2020)</span>.</p>
+<p>Grouped citation: this example draws on two sample records <span
+class="citation" data-cites="smith2020 jones2022">(Smith 2020; Jones
+2022)</span>.</p>
+<p>With a page locator: <span class="citation"
+data-cites="jones2022">(Jones 2022, 45)</span>.</p>
+<p>Suppress author: Jones is mentioned separately, then <span
+class="citation" data-cites="jones2022">(2022)</span> can be used to
+show only the year after processing.</p>
+<h1 id="document-structure">Document structure</h1>
+<p>Normal paragraphs, headings and tables are converted using Pandoc;
+citation content controls are restored as native Pandoc Cite nodes.</p>
+<table style="width:97%;">
+<colgroup>
+<col style="width: 48%" />
+<col style="width: 48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Word feature</th>
+<th style="text-align: left;">Quarto result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Heading 1</td>
+<td style="text-align: left;"># Heading</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Managed citation</td>
+<td style="text-align: left;">Native Pandoc citation</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Table</td>
+<td style="text-align: left;">Markdown table</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><p>First conceptual deliverable</p></li>
+<li><p>First tested conversion</p></li>
+</ul>
+<div id="refs" class="references csl-bib-body hanging-indent"
+data-entry-spacing="0" role="list">
+<div id="ref-jones2022" class="csl-entry" role="listitem">
+Jones, Morgan. 2022. <em>A Demonstration of Structured Citations</em>.
+Example Press.
+</div>
+<div id="ref-smith2020" class="csl-entry" role="listitem">
+Smith, Alex. 2020. <span>“An Illustrative Citation Workflow.”</span>
+<em>Example Research Methods</em>.
+</div>
+</div>
