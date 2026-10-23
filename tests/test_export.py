@@ -197,7 +197,7 @@ def custom_style_docx(source: Path, destination: Path, style: bytes,
             for info in archive.infolist():
                 output.writestr(info, changed if info.filename == 'word/document.xml'
                                 else archive.read(info.filename))
-            output.writestr('customXml/itemBibWord.xml', etree.tostring(store,
+            output.writestr('customXML/itemBibWord.xml', etree.tostring(store,
                               encoding='UTF-8', xml_declaration=True, standalone=True))
     return style_id
 

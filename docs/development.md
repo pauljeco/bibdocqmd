@@ -58,7 +58,7 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
 7. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion.
 8. Save and reopen the document. Confirm that the saved style is restored, then download the document as DOCX.
-9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. For a custom style, also confirm that the DOCX contains a `customXml/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
+9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
 10. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, and that rendered references occur before any text following the marker.
 
 ```bash

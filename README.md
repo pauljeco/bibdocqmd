@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, a three-key group, the bibliography marker, Citation.js/citeproc-js previews, style switching, and styled-marker persistence worked in the real host. A downloaded document retained its selected Harvard style, and the exporter produced matching Harvard citations and references at the explicit marker. Independent custom CSL import and document embedding are implemented and covered by package-level tests, but still need a real Word host test. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, and custom CSL import all worked in the real host. Downloaded documents retained both Harvard metadata and an embedded custom APA style; the exporter produced matching citations and references at the explicit marker. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -64,7 +64,7 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 8. Put the cursor where the references must appear and choose **Insert bibliography marker**. Use one marker per document. Changing the citation style after inserting the marker updates its stored export style.
 9. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, save/reopen persistence, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, custom-style embedding in a real host, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores visible keys plus a visible, versioned bibliography-position marker containing the selected style identifier.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores visible keys plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
 ## Architecture and next steps
 
@@ -85,7 +85,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: test custom-CSL embedding through save, reopen, download, and export in **Word for the web**, then validate the workflow in **Windows Word** and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
+Next: validate the workflow in **Windows Word**, then test copy/paste and coauthoring behavior and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
 
 ## Known limitations and test boundaries
 

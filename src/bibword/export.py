@@ -100,8 +100,10 @@ def embedded_csl_styles(docx: Path) -> dict[str, bytes]:
     styles: dict[str, bytes] = {}
     parser = etree.XMLParser(resolve_entities=False, no_network=True)
     with zipfile.ZipFile(docx) as archive:
+        # Word for the web writes this package directory as ``customXML``;
+        # accept casing variants because OPC ZIP member names are case-sensitive.
         names = [name for name in archive.namelist()
-                 if name.startswith('customXml/') and name.endswith('.xml')]
+                 if name.casefold().startswith('customxml/') and name.casefold().endswith('.xml')]
         for name in names:
             try:
                 root = etree.fromstring(archive.read(name), parser=parser)
