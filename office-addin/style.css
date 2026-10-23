@@ -28,6 +28,7 @@ output { display:block; background:#eaf1f8; padding:12px; border-radius:5px; min
 .document-bibliography-preview li + li { margin-top:10px; }
 button { display:block; width:100%; margin-top:14px; padding:11px; color:#fff; background:#174f79; font-weight:700; border:0; border-radius:5px; cursor:pointer; }
 button.secondary { margin-top:0; color:#174f79; background:#e7f0f7; border:1px solid #a9bfd0; }
+.library-clear { margin-top:8px !important; }
 .button-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .button-grid button { margin-top:14px; }
 button:disabled { opacity:.5; cursor:not-allowed; }

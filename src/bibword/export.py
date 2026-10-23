@@ -510,19 +510,48 @@ def bibliography_keys(bib_file: Path) -> set[str]:
     return set(BIB_KEY_PATTERN.findall(bib_file.read_text(encoding='utf-8-sig')))
 
 
+def combined_bibliography_keys(bib_files: list[Path]) -> set[str]:
+    """Combine keys while rejecting ambiguous duplicates across all sources."""
+    source_by_key: dict[str, Path] = {}
+    for bib_file in bib_files:
+        keys = BIB_KEY_PATTERN.findall(bib_file.read_text(encoding='utf-8-sig'))
+        file_keys: set[str] = set()
+        for key in keys:
+            if key in file_keys:
+                raise CitationError(
+                    f'Duplicate citation key "{key}" occurs more than once in {bib_file}.')
+            file_keys.add(key)
+            if key in source_by_key:
+                raise CitationError(
+                    f'Duplicate citation key "{key}" occurs in '
+                    f'{source_by_key[key]} and {bib_file}. Rename one key before export.')
+            source_by_key[key] = bib_file
+    return set(source_by_key)
+
+
+def resolve_bibliography_paths(bib_paths: str | Path | list[str | Path]) -> list[Path]:
+    inputs = [bib_paths] if isinstance(bib_paths, (str, Path)) else list(bib_paths)
+    if not inputs:
+        raise CitationError('At least one bibliography is required.')
+    resolved = [Path(path).resolve() for path in inputs]
+    for path in resolved:
+        if not path.exists():
+            raise FileNotFoundError(f'Bibliography not found: {path}')
+    return resolved
+
+
 def export_docx(docx_path: str | Path, qmd_path: str | Path,
-                bib_path: str | Path, title: str = 'Word to Quarto prototype') -> int:
+                bib_path: str | Path | list[str | Path],
+                title: str = 'Word to Quarto prototype') -> int:
     docx_path = Path(docx_path).resolve()
     qmd_path = Path(qmd_path).resolve()
-    bib_path = Path(bib_path).resolve()
-    if not bib_path.exists():
-        raise FileNotFoundError(f'Bibliography not found: {bib_path}')
+    bib_paths = resolve_bibliography_paths(bib_path)
 
     xml, mapping = extract_tagged_controls(docx_path)
     if not mapping:
         raise CitationError('No BibWord content controls found in this DOCX.')
 
-    known_keys = bibliography_keys(bib_path)
+    known_keys = combined_bibliography_keys(bib_paths)
     citations = [value for value in mapping.values() if value.get('t') == 'Cite']
     used_keys = {c['citationId'] for value in citations for c in value['c'][0]}
     unknown = used_keys - known_keys
@@ -542,10 +571,12 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
     qmd_path.parent.mkdir(parents=True, exist_ok=True)
     # A relative bibliography path keeps the output portable with its .bib file.
     from os.path import relpath
-    relative_bib = relpath(bib_path, qmd_path.parent).replace('\\', '/')
+    relative_bibs = [relpath(path, qmd_path.parent).replace('\\', '/') for path in bib_paths]
+    bibliography_value: str | list[str] = (
+        relative_bibs[0] if len(relative_bibs) == 1 else relative_bibs)
     frontmatter = ('---\n'
                    f'title: {json.dumps(title, ensure_ascii=False)}\n'
-                   f'bibliography: {json.dumps(relative_bib, ensure_ascii=False)}\n')
+                   f'bibliography: {json.dumps(bibliography_value, ensure_ascii=False)}\n')
     styles = {value.get('style') for value in mapping.values()
               if value.get('t') == 'BibWordBibliography' and value.get('style')}
     if styles:
@@ -582,7 +613,10 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description='Export tagged Word Quarto-style citations to .qmd')
     parser.add_argument('docx', type=Path)
-    parser.add_argument('--bib', type=Path, required=True)
+    parser.add_argument(
+        '--bib', type=Path, action='append', required=True,
+        help='BibTeX/BibLaTeX source; repeat --bib to combine several files.',
+    )
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--title', default='Word to Quarto prototype')
     args = parser.parse_args(argv)

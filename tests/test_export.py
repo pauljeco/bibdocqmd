@@ -115,6 +115,42 @@ def test_missing_bibliography_key_is_detected(tmp_path):
         export_docx(DOCX, tmp_path / 'bad.qmd', bib)
 
 
+def test_multiple_bibliography_files_are_combined_in_quarto_metadata(tmp_path):
+    articles = tmp_path / 'articles.bib'
+    books = tmp_path / 'books.bib'
+    articles.write_text(
+        '@article{smith2020, author={Smith, Alex}, title={Article}, year={2020}}\n',
+        encoding='utf-8',
+    )
+    books.write_text(
+        '@book{jones2022, author={Jones, Morgan}, title={Book}, year={2022}}\n',
+        encoding='utf-8',
+    )
+    output = tmp_path / 'combined.qmd'
+
+    assert export_docx(DOCX, output, [articles, books]) == 5
+    text = output.read_text(encoding='utf-8')
+    assert 'bibliography: ["articles.bib", "books.bib"]' in text
+    assert '@smith2020' in text
+    assert '@jones2022' in text
+    rendered = subprocess.run(
+        ['pandoc', str(output), '--citeproc', '--to', 'html'],
+        cwd=tmp_path, capture_output=True, text=True, check=True,
+    ).stdout
+    assert 'Article' in rendered
+    assert 'Book' in rendered
+
+
+def test_duplicate_keys_across_bibliography_files_are_rejected(tmp_path):
+    first = tmp_path / 'first.bib'
+    second = tmp_path / 'second.bib'
+    first.write_text('@article{shared, title={First}}\n', encoding='utf-8')
+    second.write_text('@article{shared, title={Second}}\n', encoding='utf-8')
+
+    with pytest.raises(CitationError, match=r'Duplicate citation key "shared".*first\.bib.*second\.bib'):
+        export_docx(DOCX, tmp_path / 'duplicate.qmd', [first, second])
+
+
 def test_bibliography_marker_controls_reference_position(tmp_path):
     from docx import Document
     from docx.oxml import OxmlElement

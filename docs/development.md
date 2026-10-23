@@ -53,14 +53,14 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 1. Keep the HTTPS development server running.
 2. Open a Word document in Word for the web.
 3. Use **Add-ins** > **More Add-ins** > **My Add-ins** > **Upload My Add-in** and select `office-addin/manifest.xml`. The exact labels can vary by tenant.
-4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, confirm the APA CSL preview, and insert a citation.
+4. Open the BibWord task pane and add one or more `.bib` files, using another selection when the files are in different directories. Enter a key from the combined index, confirm the APA CSL preview and source filename, and insert a citation. Select two files with the same key once and confirm that BibWord blocks the collision explicitly without discarding the previously valid library set.
 5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
 6. Choose **Show formatted citations**, then **Show editable keys**. Confirm that all citations change together and the exact original Quarto syntax returns. Format them again, select one formatted citation, load it, update it, and confirm only that occurrence changes.
 7. Copy and paste one formatted citation. Load the pasted occurrence, update its locator or key, and confirm the original occurrence is unchanged. Copy a key-view citation and repeat the same check.
 8. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
 9. Put the cursor on a separate line where the references should appear. Select **Entire document**, insert a marker, change the style once more, then choose **Update in Word**. Confirm that the marker contains the heading and all formatted references.
 10. Add two Heading 1 chapters with at least one citation repeated between them. Select **Current Heading 1 chapter**, insert one marker near the end of each chapter, and update. Confirm that each list contains only that chapter's references and that the repeated source occurs in both. Repeat with Heading 2 or Heading 3 if those scopes are in the test document.
-11. Save and reopen the document. Reload the `.bib` file, confirm that the saved style and all generated bibliographies remain, and toggle formatted citations back to editable keys. Then download the document as DOCX.
+11. Save and reopen the document. Confirm that BibWord lists the remembered `.bib` filenames, reselect those local files, confirm that the saved style and all generated bibliographies remain, and toggle formatted citations back to editable keys. Then download the document as DOCX.
 12. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and marker tags matching `bibword:refs:v3:<identity>:<style>:<scope>`. Each marker identity must be unique. Formatted controls must have a `w:alias` beginning `BibWord citation source v1:`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
 13. Export it with the command below. Confirm that the `.qmd` contains the matching `csl` path, generated `bibword-reference-*.docx`, and, for scoped markers, `bibword-multiple-bibliographies.lua`. Confirm that formatted display text and generated Word references do not leak into the QMD, each rendered list occurs at its marker, repeated chapter references appear in each relevant list, and Quarto DOCX references use a 0.5-inch hanging indent.
 
@@ -69,6 +69,7 @@ If a document-wide operation reports `Citation N "..." is invalid`, inspect that
 ```bash
 .venv/bin/bibword-export downloaded.docx \
   --bib examples/references.bib \
+  --bib path/to/another-library.bib \
   --out exported.qmd
 ```
 

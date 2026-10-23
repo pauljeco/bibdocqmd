@@ -86,17 +86,20 @@ function citationEntries(keys, locator = '') {
 }
 
 export class CslLibrary {
-  constructor(bibtex) {
-    if (typeof bibtex !== 'string' || !bibtex.trim()) {
+  constructor(bibliography, sourceById = new Map(), sourceNames = []) {
+    if ((typeof bibliography === 'string' && !bibliography.trim())
+        || (Array.isArray(bibliography) && !bibliography.length)) {
       throw new Error('The selected bibliography is empty.');
     }
-    this.cite = new Cite(bibtex, { generateGraph: false });
+    this.cite = new Cite(bibliography, { generateGraph: false });
     this.items = this.cite.data;
     if (!this.items.length) throw new Error('No bibliography entries could be parsed.');
     this.itemById = new Map(this.items.map((item) => [String(item.id), item]));
     if (this.itemById.size !== this.items.length) {
       throw new Error('The bibliography contains duplicate citation keys.');
     }
+    this.sourceById = new Map(sourceById);
+    this.sourceNames = [...sourceNames];
   }
 
   get size() {
@@ -105,6 +108,10 @@ export class CslLibrary {
 
   get keys() {
     return [...this.itemById.keys()];
+  }
+
+  sourceForKey(key) {
+    return this.sourceById.get(key) || '';
   }
 
   missingKeys(keys) {
@@ -164,4 +171,45 @@ export class CslLibrary {
 
 export function createLibrary(bibtex) {
   return new CslLibrary(bibtex);
+}
+
+export function createLibraryFromSources(sources) {
+  if (!Array.isArray(sources) || !sources.length) {
+    throw new Error('Choose at least one bibliography file.');
+  }
+  const sourceById = new Map();
+  const sourceNames = [];
+  for (const source of sources) {
+    const name = String(source?.name || '').trim() || 'Unnamed bibliography';
+    const contents = source?.contents;
+    if (typeof contents !== 'string' || !contents.trim()) {
+      throw new Error(`${name} is empty.`);
+    }
+    let parsed;
+    try {
+      parsed = new Cite(contents, { generateGraph: false }).data;
+    } catch (error) {
+      throw new Error(`${name}: ${error.message || String(error)}`);
+    }
+    const fileKeys = new Set();
+    for (const item of parsed) {
+      const key = String(item.id);
+      if (fileKeys.has(key)) {
+        throw new Error(`Duplicate citation key “${key}” occurs more than once in ${name}.`);
+      }
+      fileKeys.add(key);
+      if (sourceById.has(key)) {
+        throw new Error(
+          `Duplicate citation key “${key}” occurs in ${sourceById.get(key)} and ${name}. `
+          + 'Rename one key before combining these libraries.',
+        );
+      }
+      sourceById.set(key, name);
+    }
+    sourceNames.push(name);
+  }
+  // Parse the union once more so BibTeX strings and crossref relationships can
+  // resolve across file boundaries while source ownership stays explicit.
+  const combined = sources.map(({ contents }) => contents).join('\n\n');
+  return new CslLibrary(combined, sourceById, sourceNames);
 }

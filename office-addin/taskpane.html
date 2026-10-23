@@ -15,10 +15,11 @@
       <p>Edit <code>@citationKeys</code> directly, then switch to formatted citations when you want a reading view.</p>
     </header>
     <section aria-labelledby="library-heading">
-      <h2 id="library-heading">1. Select a BibTeX library</h2>
-      <label for="bib-file">Choose a <code>.bib</code> file</label>
-      <input id="bib-file" type="file" accept=".bib,.bibtex,text/plain" />
-      <small id="library-status">No library selected. You can still enter a citation key manually.</small>
+      <h2 id="library-heading">1. Select BibTeX libraries</h2>
+      <label for="bib-file">Add one or more <code>.bib</code> files</label>
+      <input id="bib-file" type="file" accept=".bib,.bibtex,text/plain" multiple />
+      <button id="clear-bibliographies" class="secondary library-clear" type="button" disabled>Clear libraries</button>
+      <small id="library-status">No libraries selected. You can still enter a citation key manually.</small>
     </section>
     <section aria-labelledby="citation-heading">
       <h2 id="citation-heading">2. Insert or edit a citation</h2>

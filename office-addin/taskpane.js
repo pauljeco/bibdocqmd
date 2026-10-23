@@ -9,10 +9,12 @@
     replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
   const {
-    createLibrary, CSL_STYLES, customStyleIdentity, registerCslStyle, validateCslStyle,
+    createLibraryFromSources, CSL_STYLES, customStyleIdentity, registerCslStyle, sha256Hex,
+    validateCslStyle,
   } = globalThis.BibWordCsl;
   const styleIds = new Set(CSL_STYLES.map(({ id }) => id));
   const customStyleNamespace = 'urn:bibword:csl-style:v1';
+  const librarySourceNamespace = 'urn:bibword:library-sources:v1';
   const customStyleIdPattern = /^custom-[0-9a-f]{12}$/;
   const customStyles = new Map();
   let knownKeys = null;
@@ -21,6 +23,8 @@
   let activeSuggestion = -1;
   let selectedControlId = null;
   let documentCitationKeys = [];
+  let rememberedLibrarySources = [];
+  let activeLibrarySources = new Map();
 
   function enteredKeys() {
     return $('citation-keys').value.split(';').map((x) => x.trim()).filter(Boolean);
@@ -293,6 +297,29 @@
       + '</bibwordStyle>';
   }
 
+  function librarySourceStoreXml(sources) {
+    const items = sources.map(({ name, hash }) => (
+      `<source hash="${hash}"><name encoding="base64">${bytesToBase64(name)}</name></source>`
+    )).join('');
+    return `<bibwordLibraries xmlns="${librarySourceNamespace}" version="1">${items}</bibwordLibraries>`;
+  }
+
+  function parseLibrarySourceStore(xml) {
+    const parsed = new DOMParser().parseFromString(xml, 'application/xml');
+    if (parsed.querySelector('parsererror')) throw new Error('The embedded library-source list is invalid XML.');
+    const root = parsed.documentElement;
+    if (root.localName !== 'bibwordLibraries' || root.namespaceURI !== librarySourceNamespace) return null;
+    if (root.getAttribute('version') !== '1') throw new Error('The embedded library-source list has an unsupported version.');
+    return [...root.getElementsByTagNameNS(librarySourceNamespace, 'source')].map((node) => {
+      const hash = node.getAttribute('hash') || '';
+      const nameNode = node.getElementsByTagNameNS(librarySourceNamespace, 'name')[0];
+      if (!/^[0-9a-f]{64}$/.test(hash) || !nameNode) {
+        throw new Error('The embedded library-source list has invalid metadata.');
+      }
+      return { name: base64ToText(nameNode.textContent || ''), hash };
+    });
+  }
+
   function parseCustomStyleStore(xml) {
     const parsed = new DOMParser().parseFromString(xml, 'application/xml');
     if (parsed.querySelector('parsererror')) throw new Error('The embedded BibWord CSL part is invalid XML.');
@@ -432,7 +459,9 @@
       option.className = 'key-suggestion';
       option.setAttribute('role', 'option');
       option.setAttribute('aria-selected', 'false');
-      option.textContent = key;
+      option.dataset.key = key;
+      const source = cslLibrary.sourceForKey(key);
+      option.textContent = source ? `${key} — ${source}` : key;
       option.addEventListener('click', () => chooseSuggestion(key));
       suggestions.appendChild(option);
     });
@@ -454,35 +483,124 @@
       highlightSuggestion(activeSuggestion - 1);
     } else if (event.key === 'Enter' && activeSuggestion >= 0) {
       event.preventDefault();
-      chooseSuggestion(options[activeSuggestion].textContent);
+      chooseSuggestion(options[activeSuggestion].dataset.key);
     }
   }
 
-  async function loadBibFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function persistLibrarySources(sources) {
+    if (!supportsCustomStylePersistence()) return false;
+    await Word.run(async (context) => {
+      const existing = context.document.customXmlParts.getByNamespace(librarySourceNamespace);
+      existing.load('items/id');
+      await context.sync();
+      existing.items.forEach((part) => part.delete());
+      if (sources.length) context.document.customXmlParts.add(librarySourceStoreXml(sources));
+      await context.sync();
+    });
+    return true;
+  }
+
+  async function restoreDocumentLibrarySources() {
+    if (!supportsCustomStylePersistence()) return;
     try {
-      const contents = await file.text();
-      cslLibrary = createLibrary(contents);
+      await Word.run(async (context) => {
+        const parts = context.document.customXmlParts.getByNamespace(librarySourceNamespace);
+        parts.load('items/id');
+        await context.sync();
+        const blobs = parts.items.map((part) => part.getXml());
+        await context.sync();
+        const stores = blobs.map(({ value }) => parseLibrarySourceStore(value)).filter(Boolean);
+        if (stores.length > 1) throw new Error('The document contains more than one library-source list.');
+        rememberedLibrarySources = stores[0] || [];
+      });
+      if (rememberedLibrarySources.length) {
+        const names = rememberedLibrarySources.map(({ name }) => name).join(', ');
+        $('library-status').textContent = `This document last used: ${names}. Choose those files again to query them.`;
+      }
+    } catch (error) {
+      $('library-status').textContent = 'Could not restore the saved library filenames: '
+        + (error.message || String(error));
+    }
+  }
+
+  async function loadBibFiles(event) {
+    const files = [...(event.target.files || [])];
+    if (!files.length) return;
+    try {
+      const addedSources = await Promise.all(files.map(async (file) => {
+        const contents = await file.text();
+        return { name: file.name, contents, hash: await sha256Hex(contents) };
+      }));
+      const combinedSources = new Map(activeLibrarySources);
+      addedSources.forEach((source) => combinedSources.set(source.name, source));
+      const sources = [...combinedSources.values()];
+      cslLibrary = createLibraryFromSources(sources);
+      activeLibrarySources = combinedSources;
       knownKeys = new Set(cslLibrary.keys);
-      $('library-status').textContent = `${file.name}: ${cslLibrary.size} entries parsed as BibLaTeX/CSL.`;
+      const rememberedHashes = new Map(rememberedLibrarySources.map(({ name, hash }) => [name, hash]));
+      const changedSources = sources
+        .filter(({ name, hash }) => rememberedHashes.has(name) && rememberedHashes.get(name) !== hash)
+        .map(({ name }) => name);
+      const names = sources.map(({ name }) => name).join(', ');
+      $('library-status').textContent = `${sources.length} file${sources.length === 1 ? '' : 's'}: ${names}. ${cslLibrary.size} unique entries parsed as BibLaTeX/CSL.`;
       $('refresh-bibliography').disabled = !officeReady;
       $('format-bibliography').disabled = !officeReady;
       $('show-formatted-citations').disabled = !officeReady;
-      setStatus('Bibliography parsed locally with Citation.js; no file data uploaded.');
+      $('clear-bibliographies').disabled = false;
+      let persisted = false;
+      let persistenceWarning = '';
+      if (officeReady) {
+        try {
+          persisted = await persistLibrarySources(sources);
+          rememberedLibrarySources = sources.map(({ name, hash }) => ({ name, hash }));
+        } catch (error) {
+          persistenceWarning = ` Filenames could not be saved with the document: ${error.message || String(error)}`;
+        }
+      }
+      const changeWarning = changedSources.length
+        ? ` Warning: file contents changed since the document last used ${changedSources.join(', ')}.` : '';
+      setStatus(`Combined bibliography parsed locally; no file data uploaded.${persisted ? ' Filenames were saved with the document.' : ''}${changeWarning}${persistenceWarning}`);
       markWordBibliographyStale();
       markFormattedCitationsStale();
       renderSuggestions();
       updatePreview();
       if (documentCitationKeys.length) renderDocumentBibliography();
     } catch (error) {
-      cslLibrary = null;
-      knownKeys = null;
-      $('refresh-bibliography').disabled = true;
-      $('format-bibliography').disabled = true;
-      $('show-formatted-citations').disabled = true;
-      setStatus(error.message, true);
+      if (!cslLibrary) {
+        knownKeys = null;
+        $('refresh-bibliography').disabled = true;
+        $('format-bibliography').disabled = true;
+        $('show-formatted-citations').disabled = true;
+      }
+      setStatus('Could not combine the selected bibliographies: ' + (error.message || String(error)), true);
+    } finally {
+      event.target.value = '';
     }
+  }
+
+  async function clearBibliographies() {
+    activeLibrarySources = new Map();
+    cslLibrary = null;
+    knownKeys = null;
+    $('bib-file').value = '';
+    $('clear-bibliographies').disabled = true;
+    $('refresh-bibliography').disabled = true;
+    $('format-bibliography').disabled = true;
+    $('show-formatted-citations').disabled = true;
+    $('library-status').textContent = 'No libraries selected. You can still enter a citation key manually.';
+    rememberedLibrarySources = [];
+    let warning = '';
+    if (officeReady) {
+      try {
+        await persistLibrarySources([]);
+      } catch (error) {
+        warning = ` Saved filenames could not be cleared: ${error.message || String(error)}`;
+      }
+    }
+    hideSuggestions();
+    updatePreview();
+    renderDocumentBibliography();
+    setStatus(`Combined bibliography cleared.${warning}`, Boolean(warning));
   }
 
   function supportsCustomStylePersistence() {
@@ -911,7 +1029,8 @@
     }
   }
 
-  $('bib-file').addEventListener('change', loadBibFile);
+  $('bib-file').addEventListener('change', loadBibFiles);
+  $('clear-bibliographies').addEventListener('click', clearBibliographies);
   $('csl-file').addEventListener('change', loadCslFile);
   $('citation-keys').addEventListener('input', () => {
     updatePreview();
@@ -948,7 +1067,7 @@
   });
   updatePreview();
   if (typeof Office !== 'undefined') {
-    Office.onReady((info) => {
+    Office.onReady(async (info) => {
       if (info.host !== Office.HostType.Word) {
         setStatus('This prototype requires Microsoft Word.', true);
         return;
@@ -966,7 +1085,8 @@
       $('refresh-bibliography').disabled = !cslLibrary;
       $('format-bibliography').disabled = !cslLibrary;
       setStatus('Ready to insert citations.');
-      restoreDocumentStyle();
+      await restoreDocumentStyle();
+      await restoreDocumentLibrarySources();
     });
   } else {
     setStatus('Office.js unavailable. Load the add-in within Microsoft Word.', true);

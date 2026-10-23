@@ -23,4 +23,10 @@ test('the generated CSL bundle exposes a browser-safe global API', async () => {
   assert.equal(library.formatCitation(['x'], 'narrative', 'p. 2', 'apa'),
     'Doe (2024, p. 2)');
   assert.match(library.formatBibliographyHtml(['x'], 'apa'), /class="csl-entry"/);
+  const combined = context.BibWordCsl.createLibraryFromSources([
+    { name: 'first.bib', contents: '@article{first, title={First}}' },
+    { name: 'second.bib', contents: '@article{second, title={Second}}' },
+  ]);
+  assert.deepEqual([...combined.keys], ['first', 'second']);
+  assert.equal(combined.sourceForKey('second'), 'second.bib');
 });

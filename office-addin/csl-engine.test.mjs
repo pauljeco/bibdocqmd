@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  CSL_STYLES, createLibrary, customStyleIdentity, parseLocator, registerCslStyle,
-  validateCslStyle,
+  CSL_STYLES, createLibrary, createLibraryFromSources, customStyleIdentity, parseLocator,
+  registerCslStyle, validateCslStyle,
 } from './csl-engine.mjs';
 
 const BIBLIOGRAPHY = String.raw`
@@ -27,6 +27,43 @@ test('parses BibLaTeX into CSL data without changing citation keys', () => {
   assert.equal(library.size, 2);
   assert.deepEqual(library.keys, ['smith2020', 'geomorphons']);
   assert.equal(library.itemById.get('geomorphons').author[0].given, 'Jarosław');
+});
+
+test('combines several named bibliography files into one searchable library', () => {
+  const library = createLibraryFromSources([
+    { name: 'articles.bib', contents: '@article{article-key, title={Article}}' },
+    { name: 'reports.bib', contents: '@report{report-key, title={Report}}' },
+  ]);
+  assert.equal(library.size, 2);
+  assert.deepEqual(library.keys, ['article-key', 'report-key']);
+  assert.deepEqual(library.sourceNames, ['articles.bib', 'reports.bib']);
+  assert.equal(library.sourceForKey('article-key'), 'articles.bib');
+  assert.equal(library.sourceForKey('report-key'), 'reports.bib');
+});
+
+test('resolves BibTeX strings across selected file boundaries', () => {
+  const library = createLibraryFromSources([
+    {
+      name: 'strings-and-articles.bib',
+      contents: '@string{sharedjournal="Combined Journal"}\n@article{first, title={First}}',
+    },
+    {
+      name: 'more-articles.bib',
+      contents: '@article{second, title={Second}, journaltitle=sharedjournal, year={2024}}',
+    },
+  ]);
+  assert.equal(library.itemById.get('second')['container-title'], 'Combined Journal');
+});
+
+test('rejects duplicate keys within or across bibliography files', () => {
+  assert.throws(() => createLibraryFromSources([
+    { name: 'first.bib', contents: '@article{shared, title={First}}' },
+    { name: 'second.bib', contents: '@article{shared, title={Second}}' },
+  ]), /Duplicate citation key.*shared.*first\.bib.*second\.bib/);
+  assert.throws(() => createLibraryFromSources([{
+    name: 'duplicate.bib',
+    contents: '@article{same, title={First}}\n@article{same, title={Second}}',
+  }]), /Duplicate citation key.*same.*duplicate\.bib/);
 });
 
 test('formats citation modes and locators with citeproc-js', () => {
