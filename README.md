@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, a three-key group, the bibliography marker, and the Citation.js/citeproc-js preview worked in the real host. The selected APA or Harvard style is now stored in a versioned bibliography-marker tag and applied by the exporter; this new persistence path still needs a save/reopen host test. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, a three-key group, the bibliography marker, Citation.js/citeproc-js previews, style switching, and styled-marker persistence worked in the real host. A downloaded document retained its selected Harvard style, and the exporter produced matching Harvard citations and references at the explicit marker. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -85,12 +85,12 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: test styled-marker save/reopen persistence and matching APA/Harvard export in **Word for the web**. After that, validate the workflow in **Windows Word**, add user-supplied CSL files, and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
+Next: validate the workflow in **Windows Word**, then add user-supplied CSL files and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
 
 ## Known limitations and test boundaries
 
 - Citation controls must be **inline controls in the DOCX main document body**. The one supported block control is the bibliography-position marker; headers, footnotes, text boxes, cross-references, and tracked-change contexts remain unsupported.
-- Copy/paste, concurrent editing, and Word Online persistence of controls have not been verified on actual Microsoft products.
+- Copy/paste and concurrent editing have not been verified on actual Microsoft products; Word-for-the-web persistence has been tested only in the recorded Ubuntu/Firefox path.
 - Word users can change the text within a control; invalid citation syntax then produces an explicit error on export.
 - Untagged Quarto-looking text is left untouched rather than guessed to be a citation.
 - Raw `.bib` entries are not rewritten, so BibLaTeX-specific fields are preserved in the source file.
