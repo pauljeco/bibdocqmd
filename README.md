@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves Quarto/Pandoc markup (`@key`, `[@key]`) directly in each Word citation control while allowing an optional formatted reading view.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, and in-document bibliography generation all worked in the real host. Downloaded documents retained Harvard metadata, an embedded custom APA style, and the generated nine-entry bibliography with its italics and hanging indents. The first real-host citation-toggle attempt exposed an unsupported `Font.reset` call after converting one citation; that call has been removed and mixed-view export is verified, but the complete toggle still needs a host retest. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, in-document bibliography generation, and the document-wide formatted/editable citation toggle all worked in the real host. Downloaded documents retained Harvard metadata, an embedded custom APA style, and the generated nine-entry bibliography with its italics and hanging indents. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -66,7 +66,7 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 10. Choose **Update in Word** to write the CSL-formatted bibliography inside the marker. Repeat this after citation, library, or style changes.
 11. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, formatted citation display, coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, formatted/editable citation display, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
 ## Architecture and next steps
 
@@ -87,7 +87,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: validate the citation-display toggle and copy/paste behavior in **Word for the web**. Then give exported Quarto DOCX files an explicit reference-document style with hanging bibliography indents and validate the complete workflow in **Windows Word**.
+Next: give exported Quarto DOCX files an explicit reference-document style with hanging bibliography indents. Then validate citation copy/paste in **Word for the web** and the complete workflow in **Windows Word**.
 
 ## Known limitations and test boundaries
 
