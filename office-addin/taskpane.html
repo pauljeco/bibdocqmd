@@ -21,7 +21,9 @@
       <small id="library-status">No library selected. You can still enter a citation key manually.</small>
     </section>
     <section aria-labelledby="citation-heading">
-      <h2 id="citation-heading">2. Insert a citation</h2>
+      <h2 id="citation-heading">2. Insert or edit a citation</h2>
+      <button id="load-selected" class="secondary" type="button" disabled>Load selected citation</button>
+      <small id="editing-status">To edit, place the cursor inside a BibWord citation and load it.</small>
       <label for="citation-keys">Citation keys</label>
       <div class="key-picker">
         <input id="citation-keys" autocomplete="off" spellcheck="false"
@@ -40,8 +42,24 @@
       <input id="locator" type="text" placeholder="p. 45" />
       <div class="preview-label">Word display / Quarto syntax</div>
       <output id="citation-preview">[@key]</output>
-      <button id="insert" type="button" disabled>Insert into Word</button>
+      <div class="preview-label">Formatted citation preview</div>
+      <output id="formatted-preview" class="formatted-preview">Load a bibliography to preview formatting.</output>
+      <div class="preview-label">Formatted reference preview</div>
+      <ul id="reference-preview" class="reference-preview">
+        <li>Load a bibliography and choose a citation key.</li>
+      </ul>
+      <small>The preview uses a simple local author-year style. Final formatting is produced by Pandoc/CSL during export.</small>
+      <div class="button-grid">
+        <button id="insert" type="button" disabled>Insert new</button>
+        <button id="update-selected" type="button" disabled>Update selected</button>
+      </div>
       <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <section aria-labelledby="bibliography-heading">
+      <h2 id="bibliography-heading">3. Place the bibliography</h2>
+      <p class="section-copy">Put the cursor where the formatted references must appear. BibWord stores a visible marker there; Quarto replaces it with the bibliography during export.</p>
+      <button id="insert-bibliography" type="button" disabled>Insert bibliography marker</button>
+      <small>Use one marker per document. Move it in Word whenever the bibliography position changes.</small>
     </section>
     <footer>
       Citations are stored as Word content controls with visible Pandoc citation syntax.

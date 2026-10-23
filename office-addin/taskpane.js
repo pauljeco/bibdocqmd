@@ -5,11 +5,14 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const {
-    citationSyntax, parseKeys, replaceActiveKey, suggestKeys,
+    citationSyntax, formatCitationPreview, formatReference, parseBibEntries,
+    parseCitationSyntax, replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
   let knownKeys = null;
+  let bibliography = new Map();
   let officeReady = false;
   let activeSuggestion = -1;
+  let selectedControlTag = null;
 
   function enteredKeys() {
     return $('citation-keys').value.split(';').map((x) => x.trim()).filter(Boolean);
@@ -27,6 +30,41 @@
     } catch (e) {
       $('citation-preview').textContent = e.message;
     }
+    renderFormattedPreviews();
+  }
+
+  function renderFormattedPreviews() {
+    const keys = enteredKeys();
+    const references = $('reference-preview');
+    references.replaceChildren();
+    if (!bibliography.size) {
+      $('formatted-preview').textContent = 'Load a bibliography to preview formatting.';
+      const item = document.createElement('li');
+      item.textContent = 'Load a bibliography and choose a citation key.';
+      references.appendChild(item);
+      return;
+    }
+    if (!keys.length) {
+      $('formatted-preview').textContent = 'Choose at least one citation key.';
+      const item = document.createElement('li');
+      item.textContent = 'No citation selected.';
+      references.appendChild(item);
+      return;
+    }
+    try {
+      $('formatted-preview').textContent = formatCitationPreview(
+        keys, $('mode').value, $('locator').value, bibliography,
+      );
+    } catch (error) {
+      $('formatted-preview').textContent = error.message;
+    }
+    keys.forEach((key) => {
+      const item = document.createElement('li');
+      item.textContent = bibliography.has(key)
+        ? formatReference(bibliography.get(key))
+        : `${key}: not found in the current library.`;
+      references.appendChild(item);
+    });
   }
 
   function hideSuggestions() {
@@ -102,10 +140,12 @@
     if (!file) return;
     try {
       const contents = await file.text();
-      knownKeys = parseKeys(contents);
+      bibliography = parseBibEntries(contents);
+      knownKeys = new Set(bibliography.keys());
       $('library-status').textContent = `${file.name}: ${knownKeys.size} keys discovered (prototype parser).`;
       setStatus('Bibliography opened locally; no file data uploaded.');
       renderSuggestions();
+      updatePreview();
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -115,12 +155,7 @@
     if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
     let syntax;
     try {
-      const keys = enteredKeys();
-      if (knownKeys) {
-        const missing = keys.filter((key) => !knownKeys.has(key));
-        if (missing.length) throw new Error('Keys missing in current library: ' + missing.join(', '));
-      }
-      syntax = citationSyntax(keys, $('mode').value, $('locator').value);
+      syntax = validatedSyntax();
     } catch (error) {
       return setStatus(error.message, true);
     }
@@ -141,6 +176,95 @@
     }
   }
 
+  async function loadSelectedCitation() {
+    if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
+    try {
+      let selected;
+      await Word.run(async (context) => {
+        const control = context.document.getSelection().parentContentControl;
+        control.load('tag,text');
+        await context.sync();
+        selected = { tag: control.tag, text: control.text };
+      });
+      if (!selected.tag.startsWith('bibword:cite:v1:')) {
+        throw new Error('The selected content control is not a BibWord citation.');
+      }
+      const parsed = parseCitationSyntax(selected.text);
+      $('citation-keys').value = parsed.keys.join('; ');
+      $('mode').value = parsed.mode;
+      $('locator').value = parsed.locator;
+      selectedControlTag = selected.tag;
+      $('update-selected').disabled = false;
+      $('editing-status').textContent = `Editing ${selected.text}`;
+      updatePreview();
+      setStatus('Selected citation loaded. Change its fields, then choose Update selected.');
+    } catch (error) {
+      selectedControlTag = null;
+      $('update-selected').disabled = true;
+      $('editing-status').textContent = 'To edit, place the cursor inside a BibWord citation and load it.';
+      setStatus('Could not load a BibWord citation. Place the cursor inside its blue citation text and try again.', true);
+    }
+  }
+
+  function validatedSyntax() {
+    const keys = enteredKeys();
+    if (knownKeys) {
+      const missing = keys.filter((key) => !knownKeys.has(key));
+      if (missing.length) throw new Error('Keys missing in current library: ' + missing.join(', '));
+    }
+    return citationSyntax(keys, $('mode').value, $('locator').value);
+  }
+
+  async function updateSelectedCitation() {
+    if (!selectedControlTag) return setStatus('Load a selected BibWord citation first.', true);
+    let syntax;
+    try {
+      syntax = validatedSyntax();
+    } catch (error) {
+      return setStatus(error.message, true);
+    }
+    try {
+      await Word.run(async (context) => {
+        const matches = context.document.contentControls.getByTag(selectedControlTag);
+        matches.load('items');
+        await context.sync();
+        if (!matches.items.length) throw new Error('The selected citation no longer exists.');
+        const updated = matches.items[0].insertText(syntax, Word.InsertLocation.replace);
+        updated.font.name = 'Consolas';
+        updated.font.color = '#165789';
+        await context.sync();
+      });
+      $('editing-status').textContent = `Editing ${syntax}`;
+      setStatus('Selected citation updated without changing its BibWord identity.');
+    } catch (error) {
+      setStatus('Word update failed: ' + (error.message || String(error)), true);
+    }
+  }
+
+  async function insertBibliographyMarker() {
+    if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
+    try {
+      await Word.run(async (context) => {
+        const controls = context.document.contentControls;
+        controls.load('items/tag');
+        await context.sync();
+        if (controls.items.some((control) => control.tag.startsWith('bibword:refs:v1:'))) {
+          throw new Error('This document already contains a BibWord bibliography marker.');
+        }
+        const selection = context.document.getSelection();
+        const paragraph = selection.insertParagraph('References', Word.InsertLocation.after);
+        paragraph.styleBuiltIn = 'Heading1';
+        const control = paragraph.insertContentControl();
+        control.tag = 'bibword:refs:v1:' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        control.title = 'BibWord bibliography position';
+        await context.sync();
+      });
+      setStatus('Bibliography marker inserted. Quarto will place formatted references here.');
+    } catch (error) {
+      setStatus('Bibliography marker failed: ' + (error.message || String(error)), true);
+    }
+  }
+
   $('bib-file').addEventListener('change', loadBibFile);
   $('citation-keys').addEventListener('input', () => {
     updatePreview();
@@ -151,6 +275,9 @@
   $('locator').addEventListener('input', updatePreview);
   $('mode').addEventListener('change', updatePreview);
   $('insert').addEventListener('click', insertIntoWord);
+  $('load-selected').addEventListener('click', loadSelectedCitation);
+  $('update-selected').addEventListener('click', updateSelectedCitation);
+  $('insert-bibliography').addEventListener('click', insertBibliographyMarker);
   document.addEventListener('click', (event) => {
     if (!$('citation-keys').closest('.key-picker').contains(event.target)) hideSuggestions();
   });
@@ -167,6 +294,8 @@
       }
       officeReady = true;
       $('insert').disabled = false;
+      $('load-selected').disabled = false;
+      $('insert-bibliography').disabled = false;
       setStatus('Ready to insert citations.');
     });
   } else {

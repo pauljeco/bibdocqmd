@@ -89,6 +89,54 @@ def test_missing_bibliography_key_is_detected(tmp_path):
         export_docx(DOCX, tmp_path / 'bad.qmd', bib)
 
 
+def test_bibliography_marker_controls_reference_position(tmp_path):
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    document = Document()
+    paragraph = document.add_paragraph('Statement ')
+    citation = OxmlElement('w:sdt')
+    citation_properties = OxmlElement('w:sdtPr')
+    citation_tag = OxmlElement('w:tag')
+    citation_tag.set(qn('w:val'), 'bibword:cite:v1:test')
+    citation_properties.append(citation_tag)
+    citation_content = OxmlElement('w:sdtContent')
+    citation_run = OxmlElement('w:r')
+    citation_text = OxmlElement('w:t')
+    citation_text.text = '[@smith2020]'
+    citation_run.append(citation_text)
+    citation_content.append(citation_run)
+    citation.extend([citation_properties, citation_content])
+    paragraph._p.append(citation)
+
+    marker_paragraph = document.add_paragraph('References')
+    marker = OxmlElement('w:sdt')
+    marker_properties = OxmlElement('w:sdtPr')
+    marker_tag = OxmlElement('w:tag')
+    marker_tag.set(qn('w:val'), 'bibword:refs:v1:test')
+    marker_properties.append(marker_tag)
+    marker_content = OxmlElement('w:sdtContent')
+    marker_parent = marker_paragraph._p.getparent()
+    marker_index = marker_parent.index(marker_paragraph._p)
+    marker_parent.remove(marker_paragraph._p)
+    marker_content.append(marker_paragraph._p)
+    marker.extend([marker_properties, marker_content])
+    marker_parent.insert(marker_index, marker)
+    document.add_heading('Content after references', level=1)
+
+    source = tmp_path / 'marker.docx'
+    output = tmp_path / 'marker.qmd'
+    document.save(source)
+    count = export_docx(source, output, BIB)
+    text = output.read_text(encoding='utf-8')
+
+    assert count == 1
+    assert '::: {#refs}' in text
+    assert '# References {.unnumbered}' in text
+    assert text.index('::: {#refs}') < text.index('# Content after references')
+
+
 def test_invalid_docx_without_managed_citations(tmp_path):
     from docx import Document
     plain = tmp_path / 'plain.docx'

@@ -23,6 +23,7 @@ from lxml import etree
 NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 W = '{' + NS['w'] + '}'
 CITATION_TAG_PREFIX = 'bibword:cite:v1:'
+BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:v1:'
 TOKEN_PATTERN = re.compile(r'BIBWORDCIT\d{6}TOKEN')
 BIB_KEY_PATTERN = re.compile(r'^\s*@\w+\s*[({]\s*([^,\s]+)\s*,', re.M)
 
@@ -57,27 +58,49 @@ def citation_ast(citation_text: str) -> dict:
 
 
 def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
-    """Remove only our citation content controls in a temporary DOCX document part."""
+    """Replace BibWord controls with unique tokens in a temporary document part."""
     with zipfile.ZipFile(docx) as archive:
         original = archive.read('word/document.xml')
     root = etree.fromstring(original)
     mapping: dict[str, dict] = {}
+    bibliography_found = False
     for control in list(root.xpath('.//w:sdt', namespaces=NS)):
         tag = control.find(f'{W}sdtPr/{W}tag')
         value = tag.get(W + 'val', '') if tag is not None else ''
-        if not value.startswith(CITATION_TAG_PREFIX):
+        is_citation = value.startswith(CITATION_TAG_PREFIX)
+        is_bibliography = value.startswith(BIBLIOGRAPHY_TAG_PREFIX)
+        if not is_citation and not is_bibliography:
             continue
         content = control.find(f'{W}sdtContent')
-        if content is None or content.xpath('.//w:p', namespaces=NS):
-            raise CitationError(f'Citation control must be inline: {value}')
-        texts = content.xpath('.//w:t/text()', namespaces=NS)
-        visible_syntax = ''.join(texts).strip()
-        ast = citation_ast(visible_syntax)
+        if content is None:
+            raise CitationError(f'BibWord control has no content: {value}')
+        if is_citation:
+            if content.xpath('.//w:p', namespaces=NS):
+                raise CitationError(f'Citation control must be inline: {value}')
+            texts = content.xpath('.//w:t/text()', namespaces=NS)
+            ast = citation_ast(''.join(texts).strip())
+        else:
+            if bibliography_found:
+                raise CitationError('Only one BibWord bibliography marker is allowed.')
+            if not content.xpath('./w:p', namespaces=NS):
+                raise CitationError('Bibliography marker must occupy its own paragraph.')
+            bibliography_found = True
+            marker_title = ''.join(content.xpath('.//w:t/text()', namespaces=NS)).strip()
+            ast = {'t': 'BibWordBibliography', 'title': marker_title or 'References'}
         token = f'BIBWORDCIT{len(mapping) + 1:06d}TOKEN'
         mapping[token] = ast
         parent = control.getparent()
         if parent is None:
-            raise CitationError('Citation control has no parent')
+            raise CitationError('BibWord control has no parent')
+        if is_bibliography:
+            paragraph = etree.Element(W + 'p')
+            run = etree.SubElement(paragraph, W + 'r')
+            text = etree.SubElement(run, W + 't')
+            text.text = token
+            index = parent.index(control)
+            parent.remove(control)
+            parent.insert(index, paragraph)
+            continue
         run = etree.Element(W + 'r')
         text = etree.SubElement(run, W + 't')
         text.text = token
@@ -97,11 +120,27 @@ def temporary_docx(original_path: Path, document_xml: bytes, destination: Path) 
 
 
 def inject_citations(ast: dict, mapping: dict[str, dict]) -> tuple[dict, set[str]]:
-    """Replace sentinel Str nodes in arbitrary nested Pandoc inline arrays."""
+    """Restore Cite nodes and the explicit Pandoc bibliography-position Div."""
     seen: set[str] = set()
 
     def transform(node):
         if isinstance(node, dict):
+            if node.get('t') in ('Para', 'Plain'):
+                inlines = node.get('c', [])
+                if (len(inlines) == 1 and isinstance(inlines[0], dict)
+                        and inlines[0].get('t') == 'Str'):
+                    token = inlines[0].get('c')
+                    replacement = mapping.get(token)
+                    if replacement and replacement.get('t') == 'BibWordBibliography':
+                        seen.add(token)
+                        title_words = replacement['title'].split()
+                        title_inlines = []
+                        for index, word in enumerate(title_words):
+                            if index:
+                                title_inlines.append({'t': 'Space'})
+                            title_inlines.append({'t': 'Str', 'c': word})
+                        heading = {'t': 'Header', 'c': [1, ['', ['unnumbered'], []], title_inlines]}
+                        return {'t': 'Div', 'c': [['refs', [], []], [heading]]}
             return {key: transform(value) for key, value in node.items()}
         if not isinstance(node, list):
             return node
@@ -122,6 +161,8 @@ def inject_citations(ast: dict, mapping: dict[str, dict]) -> tuple[dict, set[str
                 token = match.group()
                 if token not in mapping:
                     raise CitationError(f'Unrecognised sentinel: {token}')
+                if mapping[token].get('t') != 'Cite':
+                    raise CitationError('Bibliography marker must occupy its own paragraph.')
                 seen.add(token)
                 result.append(copy.deepcopy(mapping[token]))
                 cursor = match.end()
@@ -154,7 +195,8 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
         raise CitationError('No BibWord content controls found in this DOCX.')
 
     known_keys = bibliography_keys(bib_path)
-    used_keys = {c['citationId'] for v in mapping.values() for c in v['c'][0]}
+    citations = [value for value in mapping.values() if value.get('t') == 'Cite']
+    used_keys = {c['citationId'] for value in citations for c in value['c'][0]}
     unknown = used_keys - known_keys
     if unknown:
         raise CitationError('Citation keys missing from bibliography: ' + ', '.join(sorted(unknown)))
@@ -178,7 +220,7 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
                    'format:\n  html: default\n  docx: default\n'
                    '---\n\n')
     qmd_path.write_text(frontmatter + rendered, encoding='utf-8')
-    return len(mapping)
+    return len(citations)
 
 
 def main(argv=None) -> int:

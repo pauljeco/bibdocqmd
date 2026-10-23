@@ -52,9 +52,11 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 2. Open a Word document in Word for the web.
 3. Use **Add-ins** > **More Add-ins** > **My Add-ins** > **Upload My Add-in** and select `office-addin/manifest.xml`. The exact labels can vary by tenant.
 4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, and insert a citation.
-5. Save and reopen the document. Download it as DOCX.
-6. Inspect `word/document.xml` in the downloaded DOCX for a `w:sdt` whose tag starts with `bibword:cite:v1:`.
-7. Export it with the command below and inspect the resulting citation.
+5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
+6. Put the cursor on a separate line where the references should appear and insert the bibliography marker.
+7. Save and reopen the document. Download it as DOCX.
+8. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and `bibword:refs:v1:`.
+9. Export it with the command below. Confirm that the `.qmd` contains a `#refs` Div at the marker position and that rendered references occur before any text following the marker.
 
 ```bash
 .venv/bin/bibword-export downloaded.docx \

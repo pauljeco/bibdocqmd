@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and six inserted citation controls, including a two-key group, retained their tags in the downloaded DOCX. All six controls then exported through Quarto with the real BibLaTeX library and rendered successfully to HTML and DOCX. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and six inserted citation controls, including a two-key group, retained their tags in the downloaded DOCX. All six controls then exported through Quarto with the real BibLaTeX library and rendered successfully to HTML and DOCX. Citation editing, local author-year previews, formatted-reference previews, and explicit bibliography-position markers are implemented and automatically tested but still need real-host testing. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -10,7 +10,7 @@ A **working first development step** toward a BibTeX-native citation manager for
 - `examples/references.bib`: the matching demonstration bibliography (fictional sources, not scholarly references).
 - `examples/bibword_demo.qmd`: exported Quarto document containing *real* Pandoc citations with their original keys, modes, and locators.
 - `src/bibword/export.py`: runnable DOCX-to-Quarto converter, retaining Word document structure through Pandoc and replacing citation control markers with native Pandoc `Cite` nodes.
-- `office-addin/`: experimental minimal Office.js task pane. Choose a `.bib` file (local, in browser), enter a key, select narrative/parenthetical/suppress-author mode, and insert tagged citation syntax.
+- `office-addin/`: experimental Office.js task pane. Choose a `.bib` file locally, insert or update tagged citation syntax, inspect an author-year citation/reference preview, and insert an explicit bibliography-position marker.
 - `tests/test_export.py`: regression tests for citation modes, preservation and invalid references.
 
 ## Why the visible syntax is the stored syntax
@@ -58,34 +58,37 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 2. In `office-addin/`, run `npm run cert` and `npm run cert:verify` to generate and trust local HTTPS credentials.
 3. Run `npm run dev` (serves `https://localhost:3000/`). Certificate files are read from the development certificate store and are not copied into the repository.
 4. Open a document in Word for the web. If your tenant allows developer sideloading, upload `office-addin/manifest.xml` through the Word Add-ins UI; see [Microsoft's sideloading guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/sideload-office-add-ins-for-testing).
-5. In the task pane, load `examples/references.bib`, enter `smith2020`, and insert `[@smith2020]` or `@smith2020`.
-6. Save, reopen, and download the document as `.docx`; inspect the retained content-control tag and run `bibword_export.py` against the downloaded file.
+5. In the task pane, load `examples/references.bib`, enter `smith2020`, inspect the formatted preview, and insert `[@smith2020]` or `@smith2020`.
+6. To edit, put the Word cursor inside the blue citation, choose **Load selected citation**, change its fields, then choose **Update selected**.
+7. Put the cursor where the references must appear and choose **Insert bibliography marker**. Use one marker per document.
+8. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. One Word-for-the-web insertion/download path has been verified, but save/reopen, copy/paste, coauthoring, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. The `.bib` scanner only extracts basic keys and is **not** a full BibLaTeX parser. The add-in does not yet insert bibliographies or provide a formatted CSL preview.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. One Word-for-the-web insertion/download path has been verified, but editing, bibliography-marker insertion, save/reopen, copy/paste, coauthoring, and broad host compatibility remain pending in the real host. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. The browser-side `.bib` reader and author-year preview are deliberately lightweight and are **not** a full BibLaTeX/CSL processor. Final citation and bibliography formatting is produced by Pandoc/CSL during export; Word stores visible keys plus a visible bibliography-position marker.
 
 ## Architecture and next steps
 
 See `docs/technical_audit.md` for the upstream repository assessment, `docs/development.md` for reproducible setup, and `docs/word-host-test-matrix.md` for real-host evidence.
 
 ```text
-BibTeX file → Office.js task pane → inline tagged Quarto citation in Word
-                                              │
-                                    saved Word DOCX
-                                              │
-                                 custom citation-aware converter
-                                              │
-                              Pandoc AST with native Cite nodes
-                                              │
-                                         report.qmd
-                                              │
-                                         references.bib
+BibTeX file → Office.js task pane → tagged Quarto citations in Word
+                      │                         + bibliography marker
+                      └→ local preview                  │
+                                             saved Word DOCX
+                                                    │
+                                       citation-aware converter
+                                                    │
+                              Pandoc Cite nodes + explicit #refs Div
+                                                    │
+                                               report.qmd
+                                                    │
+                                            Pandoc/CSL output
 ```
 
-Next: test save/reopen persistence in **Word for the web**, validate the Office.js insertion operation in **Windows Word**, then evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence. The repo uses React 17, citeproc, Apollo/GraphQL, an external API setting, and Office.js. That backend is not needed for this first proof of concept. Build a robust BibLaTeX parser and key-validation workflow before shipping.
+Next: test citation editing and bibliography-marker persistence in **Word for the web**, then validate the same workflow in **Windows Word**. After host validation, replace the lightweight browser preview with a real CSL processor and a robust BibLaTeX parser. Then evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
 
 ## Known limitations and test boundaries
 
-- Only **inline content controls in the DOCX main document body** are supported (not headers, footnotes, text boxes, bibliography fields, cross-references or tracked-change contexts).
+- Citation controls must be **inline controls in the DOCX main document body**. The one supported block control is the bibliography-position marker; headers, footnotes, text boxes, cross-references, and tracked-change contexts remain unsupported.
 - Copy/paste, concurrent editing, and Word Online persistence of controls have not been verified on actual Microsoft products.
 - Word users can change the text within a control; invalid citation syntax then produces an explicit error on export.
 - Untagged Quarto-looking text is left untouched rather than guessed to be a citation.
@@ -93,6 +96,7 @@ Next: test save/reopen persistence in **Word for the web**, validate the Office.
 - The exporter is a prototype CLI requiring Python and Pandoc on the export computer, **not** on colleagues' Word computers.
 - Figures, advanced layout and DOCX formatting are delegated to Pandoc, which cannot always recreate Word layouts faithfully.
 - The Office add-in has no server-side data storage. A locally chosen `.bib` file is only read in the browser, not uploaded.
+- The in-pane citation/reference preview is informative rather than CSL-authoritative. Exported Quarto, HTML, and DOCX output remains the formatting authority.
 
 ## Licence and attribution
 

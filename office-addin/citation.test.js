@@ -3,7 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  activeKeyFragment, citationSyntax, parseKeys, replaceActiveKey, suggestKeys,
+  activeKeyFragment, citationSyntax, formatCitationPreview, formatReference,
+  parseBibEntries, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
 
 test('extracts entry keys and ignores BibTeX directives', () => {
@@ -22,6 +23,48 @@ test('builds supported Pandoc citation forms', () => {
     '[@smith2020; @jones2022]');
   assert.equal(citationSyntax(['smith2020'], 'narrative', 'p. 4'), '@smith2020 [p. 4]');
   assert.equal(citationSyntax(['smith2020'], 'suppress', 'ch. 2'), '[-@smith2020, ch. 2]');
+});
+
+test('parses editable citation syntax back into task-pane fields', () => {
+  assert.deepEqual(parseCitationSyntax('[@smith2020; @jones2022, pp. 4-6]'), {
+    keys: ['smith2020', 'jones2022'], mode: 'parenthetical', locator: 'pp. 4-6',
+  });
+  assert.deepEqual(parseCitationSyntax('@smith2020 [p. 4]'), {
+    keys: ['smith2020'], mode: 'narrative', locator: 'p. 4',
+  });
+  assert.deepEqual(parseCitationSyntax('[-@jones2022, ch. 2]'), {
+    keys: ['jones2022'], mode: 'suppress', locator: 'ch. 2',
+  });
+  assert.throws(() => parseCitationSyntax('ordinary text'), /supported BibWord/);
+});
+
+test('builds a local author-year preview and formatted reference', () => {
+  const entries = parseBibEntries(`
+    @article{smith2020,
+      author = {Ada Smith and B. Jones and C. Brown},
+      year = {2020},
+      title = {A {Useful} Test},
+      journaltitle = {Journal of Examples},
+      volume = {12},
+      pages = {1--9}
+    }
+    @book{jones2022, author={Brian Jones}, date={2022-03-01}, title={A Book}, publisher={Example Press}}
+  `);
+  assert.equal(entries.size, 2);
+  assert.equal(formatCitationPreview(['smith2020', 'jones2022'], 'parenthetical', 'p. 5', entries),
+    '(Smith et al., 2020; Jones, 2022, p. 5)');
+  assert.equal(formatCitationPreview(['smith2020'], 'narrative', '', entries),
+    'Smith et al. (2020)');
+  assert.match(formatReference(entries.get('smith2020')),
+    /^Ada Smith, B\. Jones, C\. Brown\. 2020\. A Useful Test\. Journal of Examples 12 1--9\.$/);
+});
+
+test('decodes common BibTeX accents in the local preview', () => {
+  const entries = parseBibEntries(String.raw`
+    @article{accented, author={H\'{e}ctor Abarca and Alejandra Mor\'{a}n-Ordo\~{n}ez}, year={2022}, title={Test}}
+  `);
+  assert.equal(formatReference(entries.get('accented')),
+    'Héctor Abarca, Alejandra Morán-Ordoñez. 2022. Test.');
 });
 
 test('suggests keys for the active segment of a grouped citation', () => {
