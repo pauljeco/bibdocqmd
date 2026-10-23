@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and six inserted citation controls, including a two-key group, retained their tags in the downloaded DOCX. All six controls then exported through Quarto with the real BibLaTeX library and rendered successfully to HTML and DOCX. Citation editing, local author-year previews, formatted-reference previews, and explicit bibliography-position markers are implemented and automatically tested but still need real-host testing. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and seven inserted citation controls, including a two-key group, retained their tags in a downloaded DOCX. A bibliography-position marker also survived the download and placed the rendered reference section before following document text. Citation editing and the lightweight preview still need broader real-host testing. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 

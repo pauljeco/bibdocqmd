@@ -51,6 +51,12 @@
         || (clean.startsWith('"') && clean.endsWith('"'))) {
       clean = clean.slice(1, -1);
     }
+    for (let pass = 0; pass < 3; pass += 1) {
+      clean = clean.replace(/\\(?:textit|textsf|textrm|textbf|emph)\s*\{([^{}]*)\}/g, '$1');
+    }
+    clean = clean
+      .replace(/\\i(?=[^A-Za-z]|$)/g, 'i')
+      .replace(/\\j(?=[^A-Za-z]|$)/g, 'j');
     const accentMaps = [
       [/\\'\{?([A-Za-z])\}?/g, { a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú', y: 'ý', A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú', Y: 'Ý' }],
       [/\\`\{?([A-Za-z])\}?/g, { a: 'à', e: 'è', i: 'ì', o: 'ò', u: 'ù', A: 'À', E: 'È', I: 'Ì', O: 'Ò', U: 'Ù' }],
@@ -62,10 +68,18 @@
     accentMaps.forEach(([pattern, replacements]) => {
       clean = clean.replace(pattern, (match, letter) => replacements[letter] || letter);
     });
+    const letterCommands = {
+      ae: 'æ', AE: 'Æ', oe: 'œ', OE: 'Œ', aa: 'å', AA: 'Å',
+      ss: 'ß', l: 'ł', L: 'Ł', o: 'ø', O: 'Ø',
+    };
+    clean = clean.replace(/\\(ae|AE|oe|OE|aa|AA|ss|l|L|o|O)(?=[^A-Za-z]|$)/g,
+      (match, command) => letterCommands[command]);
     return clean
       .replace(/[{}]/g, '')
       .replace(/~/g, ' ')
       .replace(/\\&/g, '&')
+      .replace(/\\([_%#$])/g, '$1')
+      .replace(/--/g, '–')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -254,14 +268,25 @@
   function formatReference(entry) {
     if (!entry) return '';
     const fields = entry.fields;
-    const authors = cleanBibValue(fields.author || fields.editor || entry.key)
-      .replace(/\s+and\s+/gi, ', ');
+    const people = (fields.author || fields.editor || entry.key).split(/\s+and\s+/i)
+      .map((person) => {
+        const parts = person.split(',').map((part) => part.trim()).filter(Boolean);
+        const given = (value) => value.replace(/\b([A-Z])(?=\s|$)/g, '$1.');
+        if (parts.length === 2) return `${given(parts[1])} ${parts[0]}`;
+        if (parts.length >= 3) return `${given(parts.slice(2).join(' '))} ${parts[0]}, ${parts[1]}`;
+        return person.trim();
+      });
+    let authors = people.join(', ');
+    if (people.length === 2) authors = `${people[0]} and ${people[1]}`;
+    if (people.length > 2) authors = `${people.slice(0, -1).join(', ')}, and ${people.at(-1)}`;
     const year = entryYear(entry);
     const title = fields.title || '[Untitled]';
     const container = fields.journaltitle || fields.journal || fields.booktitle || fields.publisher || '';
-    const details = [container, fields.volume, fields.number ? `(${fields.number})` : '', fields.pages]
-      .filter(Boolean).join(' ');
-    return `${authors}. ${year}. ${title}.${details ? ` ${details}.` : ''}`;
+    let publication = container;
+    if (fields.volume) publication += `${publication ? ' ' : ''}${fields.volume}`;
+    if (fields.number) publication += `(${fields.number})`;
+    if (fields.pages) publication += `${publication ? ': ' : ''}${fields.pages}`;
+    return `${authors}. ${year}. ${title}.${publication ? ` ${publication}.` : ''}`;
   }
 
   return {

@@ -56,7 +56,7 @@ test('builds a local author-year preview and formatted reference', () => {
   assert.equal(formatCitationPreview(['smith2020'], 'narrative', '', entries),
     'Smith et al. (2020)');
   assert.match(formatReference(entries.get('smith2020')),
-    /^Ada Smith, B\. Jones, C\. Brown\. 2020\. A Useful Test\. Journal of Examples 12 1--9\.$/);
+    /^Ada Smith, B\. Jones, and C\. Brown\. 2020\. A Useful Test\. Journal of Examples 12: 1–9\.$/);
 });
 
 test('decodes common BibTeX accents in the local preview', () => {
@@ -64,7 +64,34 @@ test('decodes common BibTeX accents in the local preview', () => {
     @article{accented, author={H\'{e}ctor Abarca and Alejandra Mor\'{a}n-Ordo\~{n}ez}, year={2022}, title={Test}}
   `);
   assert.equal(formatReference(entries.get('accented')),
-    'Héctor Abarca, Alejandra Morán-Ordoñez. 2022. Test.');
+    'Héctor Abarca and Alejandra Morán-Ordoñez. 2022. Test.');
+});
+
+test('decodes BibTeX letter commands and Family, Given author names', () => {
+  const entries = parseBibEntries(String.raw`
+    @article{geomorphons,
+      author={Jasiewicz, Jaros{\l}aw and Stepinski, Tomasz F},
+      date={2013},
+      title={Geomorphons: a pattern recognition approach to classification and mapping of landforms},
+      journaltitle={Geomorphology}, volume={182}, pages={147--156}
+    }
+  `);
+  assert.equal(formatReference(entries.get('geomorphons')),
+    'Jarosław Jasiewicz and Tomasz F. Stepinski. 2013. Geomorphons: a pattern recognition approach to classification and mapping of landforms. Geomorphology 182: 147–156.');
+});
+
+test('normalizes common BibTeX formatting commands and escaped symbols', () => {
+  const entries = parseBibEntries(String.raw`
+    @article{commands,
+      author={Sonja Kr{\"u}ger and Dud{\'\i}k, Miroslav},
+      title={A \textit{formatted} 30\% result},
+      url={example\_file}
+    }
+  `);
+  const entry = entries.get('commands');
+  assert.equal(entry.fields.author, 'Sonja Krüger and Dudík, Miroslav');
+  assert.equal(entry.fields.title, 'A formatted 30% result');
+  assert.equal(entry.fields.url, 'example_file');
 });
 
 test('suggests keys for the active segment of a grouped citation', () => {
