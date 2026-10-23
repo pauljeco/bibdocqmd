@@ -162,8 +162,7 @@
     return paragraphs;
   }
 
-  function bibliographyPlansFromOoxml(ooxml) {
-    const paragraphs = documentStructureFromOoxml(ooxml);
+  function bibliographyPlansFromParagraphs(paragraphs) {
     const plans = new Map();
     paragraphs.forEach((paragraph, index) => {
       if (!paragraph.marker) return;
@@ -176,6 +175,73 @@
       plans.set(metadata.id, { keys, metadata, tag, title });
     });
     return plans;
+  }
+
+  function bibliographyPlansFromOoxml(ooxml) {
+    return bibliographyPlansFromParagraphs(documentStructureFromOoxml(ooxml));
+  }
+
+  async function bibliographyPlansFromWordParagraphs(context) {
+    const paragraphCollection = context.document.body.paragraphs;
+    paragraphCollection.load('items/styleBuiltIn');
+    await context.sync();
+
+    const details = paragraphCollection.items.map((paragraph) => {
+      const controls = paragraph.contentControls;
+      const parent = paragraph.parentContentControlOrNullObject;
+      controls.load('items/id,tag,text,title');
+      parent.load('id,tag,text,title');
+      return { paragraph, controls, parent };
+    });
+    await context.sync();
+
+    const paragraphs = [];
+    const consumedMarkerControlIds = new Set();
+    details.forEach(({ paragraph, controls, parent }) => {
+      const candidates = [...controls.items];
+      if (!parent.isNullObject && !candidates.some(({ id }) => id === parent.id)) {
+        candidates.push(parent);
+      }
+      const markers = candidates.filter(({ tag }) => tag.startsWith('bibword:refs:'));
+      if (markers.length) {
+        const identities = [...new Set(markers.map(({ id }) => id))];
+        if (identities.length > 1) {
+          throw new Error('A paragraph contains more than one bibliography marker.');
+        }
+        const marker = markers[0];
+        if (!consumedMarkerControlIds.has(marker.id)) {
+          consumedMarkerControlIds.add(marker.id);
+          paragraphs.push({
+            headingLevel: 0,
+            citationKeys: [],
+            marker: {
+              tag: marker.tag,
+              text: marker.text,
+              title: marker.title,
+              metadata: parseBibliographyTag(marker.tag),
+            },
+          });
+        }
+        // Generated bibliography paragraphs all have the marker as their
+        // parent. None of them are part of the surrounding heading scope.
+        return;
+      }
+      const citationKeys = [];
+      controls.items.forEach((control) => {
+        if (control.tag.startsWith('bibword:cite:v1:')) {
+          citationKeys.push(...parseCitationControl(control).parsed.keys);
+        }
+      });
+      const heading = /^Heading([1-9])$/i.exec(
+        String(paragraph.styleBuiltIn || '').replace(/\s+/g, ''),
+      );
+      paragraphs.push({
+        headingLevel: heading ? Number(heading[1]) : 0,
+        citationKeys,
+        marker: null,
+      });
+    });
+    return bibliographyPlansFromParagraphs(paragraphs);
   }
 
   function bibliographyHeadingLevel(scope) {
@@ -758,11 +824,19 @@
       await Word.run(async (context) => {
         const controls = context.document.contentControls;
         controls.load('items/tag,text,title');
-        const bodyOoxml = context.document.body.getOoxml();
+        let plans;
+        if (Office.context.requirements.isSetSupported('WordApi', '1.3')) {
+          plans = await bibliographyPlansFromWordParagraphs(context);
+        } else {
+          const bodyOoxml = context.document.body.getOoxml();
+          await context.sync();
+          plans = bibliographyPlansFromOoxml(bodyOoxml.value);
+        }
+        // The paragraph path performs its own synchronizations; this loads the
+        // document-wide control collection in both branches.
         await context.sync();
         const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
         if (!markers.length) throw new Error('Insert a bibliography marker before updating the Word bibliography.');
-        const plans = bibliographyPlansFromOoxml(bodyOoxml.value);
         plans.forEach((plan) => {
           if (!plan.keys.length) {
             const label = plan.metadata.scope === 'document'
