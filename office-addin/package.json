@@ -4,11 +4,13 @@
   "version": "0.1.0",
   "description": "Minimal experimental Word/Word web task-pane for BibWord",
   "scripts": {
+    "build": "node build-csl.mjs",
     "dev": "node dev-server.mjs",
     "cert": "office-addin-dev-certs install",
     "cert:verify": "office-addin-dev-certs verify",
+    "pretest": "npm run build",
     "test": "node --test",
-    "lint": "node --check citation.js && node --check taskpane.js && node --check server-path.mjs && node --check dev-server.mjs",
+    "lint": "node --check citation.js && node --check taskpane.js && node --check csl-engine.mjs && node --check build-csl.mjs && node --check browser-fetch-shim.mjs && node --check server-path.mjs && node --check dev-server.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "check": "npm run lint && npm test && npm run validate"
   },
@@ -16,7 +18,13 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "esbuild": "0.25.10",
     "office-addin-dev-certs": "^3.0.1",
     "office-addin-manifest": "^3.0.1"
+  },
+  "dependencies": {
+    "@citation-js/core": "0.8.2",
+    "@citation-js/plugin-bibtex": "0.8.2",
+    "@citation-js/plugin-csl": "0.8.2"
   }
 }

@@ -224,6 +224,21 @@
     return { keys, mode: suppress ? 'suppress' : 'parenthetical', locator };
   }
 
+  function citationKeysFromControls(controls) {
+    const keys = [];
+    const seen = new Set();
+    controls.forEach(({ tag = '', text = '' }) => {
+      if (!tag.startsWith('bibword:cite:v1:')) return;
+      parseCitationSyntax(text).keys.forEach((key) => {
+        if (!seen.has(key)) {
+          seen.add(key);
+          keys.push(key);
+        }
+      });
+    });
+    return keys;
+  }
+
   function familyName(person) {
     const clean = person.replace(/[{}]/g, '').trim();
     if (!clean) return '';
@@ -291,6 +306,7 @@
 
   return {
     activeKeyFragment,
+    citationKeysFromControls,
     citationSyntax,
     formatCitationPreview,
     formatReference,

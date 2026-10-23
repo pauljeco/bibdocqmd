@@ -1,18 +1,18 @@
-/* BibWord 0.1 prototype: intentionally dependency-free UI and Office.js integration.
- * The .bib scanner extracts keys, NOT full BibLaTeX metadata; it is preliminary.
- */
+/* BibWord 0.1 prototype: local CSL previews plus Office.js integration. */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const {
-    citationSyntax, formatCitationPreview, formatReference, parseBibEntries,
-    parseCitationSyntax, replaceActiveKey, suggestKeys,
+    citationKeysFromControls, citationSyntax, parseCitationSyntax,
+    replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
+  const { createLibrary } = globalThis.BibWordCsl;
   let knownKeys = null;
-  let bibliography = new Map();
+  let cslLibrary = null;
   let officeReady = false;
   let activeSuggestion = -1;
   let selectedControlTag = null;
+  let documentCitationKeys = [];
 
   function enteredKeys() {
     return $('citation-keys').value.split(';').map((x) => x.trim()).filter(Boolean);
@@ -33,38 +33,62 @@
     renderFormattedPreviews();
   }
 
+  function selectedStyle() {
+    return $('citation-style').value;
+  }
+
+  function replaceListContents(list, messages) {
+    list.replaceChildren();
+    messages.forEach((message) => {
+      const item = document.createElement('li');
+      item.textContent = message;
+      list.appendChild(item);
+    });
+  }
+
   function renderFormattedPreviews() {
     const keys = enteredKeys();
     const references = $('reference-preview');
-    references.replaceChildren();
-    if (!bibliography.size) {
+    if (!cslLibrary) {
       $('formatted-preview').textContent = 'Load a bibliography to preview formatting.';
-      const item = document.createElement('li');
-      item.textContent = 'Load a bibliography and choose a citation key.';
-      references.appendChild(item);
+      replaceListContents(references, ['Load a bibliography and choose a citation key.']);
       return;
     }
     if (!keys.length) {
       $('formatted-preview').textContent = 'Choose at least one citation key.';
-      const item = document.createElement('li');
-      item.textContent = 'No citation selected.';
-      references.appendChild(item);
+      replaceListContents(references, ['No citation selected.']);
       return;
     }
     try {
-      $('formatted-preview').textContent = formatCitationPreview(
-        keys, $('mode').value, $('locator').value, bibliography,
+      $('formatted-preview').textContent = cslLibrary.formatCitation(
+        keys, $('mode').value, $('locator').value, selectedStyle(),
       );
+      replaceListContents(references,
+        cslLibrary.formatBibliography(keys, selectedStyle()).map(({ text }) => text));
     } catch (error) {
       $('formatted-preview').textContent = error.message;
+      replaceListContents(references, [error.message]);
     }
-    keys.forEach((key) => {
-      const item = document.createElement('li');
-      item.textContent = bibliography.has(key)
-        ? formatReference(bibliography.get(key))
-        : `${key}: not found in the current library.`;
-      references.appendChild(item);
-    });
+  }
+
+  function renderDocumentBibliography() {
+    const preview = $('document-bibliography-preview');
+    if (!cslLibrary) {
+      replaceListContents(preview, ['Load a bibliography first.']);
+      return;
+    }
+    if (!documentCitationKeys.length) {
+      replaceListContents(preview, ['No managed citations found in the document.']);
+      return;
+    }
+    try {
+      const entries = cslLibrary.formatBibliography(documentCitationKeys, selectedStyle());
+      replaceListContents(preview, entries.map(({ text }) => text));
+      $('document-preview-status').textContent = `${entries.length} unique references formatted with CSL.`;
+    } catch (error) {
+      replaceListContents(preview, [error.message]);
+      $('document-preview-status').textContent = error.message;
+    }
   }
 
   function hideSuggestions() {
@@ -140,14 +164,39 @@
     if (!file) return;
     try {
       const contents = await file.text();
-      bibliography = parseBibEntries(contents);
-      knownKeys = new Set(bibliography.keys());
-      $('library-status').textContent = `${file.name}: ${knownKeys.size} keys discovered (prototype parser).`;
-      setStatus('Bibliography opened locally; no file data uploaded.');
+      cslLibrary = createLibrary(contents);
+      knownKeys = new Set(cslLibrary.keys);
+      $('library-status').textContent = `${file.name}: ${cslLibrary.size} entries parsed as BibLaTeX/CSL.`;
+      $('refresh-bibliography').disabled = !officeReady;
+      setStatus('Bibliography parsed locally with Citation.js; no file data uploaded.');
       renderSuggestions();
       updatePreview();
+      if (documentCitationKeys.length) renderDocumentBibliography();
     } catch (error) {
+      cslLibrary = null;
+      knownKeys = null;
+      $('refresh-bibliography').disabled = true;
       setStatus(error.message, true);
+    }
+  }
+
+  async function refreshDocumentBibliography() {
+    if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
+    if (!cslLibrary) return setStatus('Load a bibliography before refreshing the document preview.', true);
+    try {
+      let controls;
+      await Word.run(async (context) => {
+        const collection = context.document.contentControls;
+        collection.load('items/tag,text');
+        await context.sync();
+        controls = collection.items.map(({ tag, text }) => ({ tag, text }));
+      });
+      documentCitationKeys = citationKeysFromControls(controls);
+      renderDocumentBibliography();
+      setStatus(`Document bibliography preview refreshed from ${documentCitationKeys.length} unique keys.`);
+    } catch (error) {
+      $('document-preview-status').textContent = error.message || String(error);
+      setStatus('Could not refresh document bibliography: ' + (error.message || String(error)), true);
     }
   }
 
@@ -274,10 +323,15 @@
   $('citation-keys').addEventListener('keydown', handleKeyPickerKeyboard);
   $('locator').addEventListener('input', updatePreview);
   $('mode').addEventListener('change', updatePreview);
+  $('citation-style').addEventListener('change', () => {
+    updatePreview();
+    renderDocumentBibliography();
+  });
   $('insert').addEventListener('click', insertIntoWord);
   $('load-selected').addEventListener('click', loadSelectedCitation);
   $('update-selected').addEventListener('click', updateSelectedCitation);
   $('insert-bibliography').addEventListener('click', insertBibliographyMarker);
+  $('refresh-bibliography').addEventListener('click', refreshDocumentBibliography);
   document.addEventListener('click', (event) => {
     if (!$('citation-keys').closest('.key-picker').contains(event.target)) hideSuggestions();
   });
@@ -296,6 +350,7 @@
       $('insert').disabled = false;
       $('load-selected').disabled = false;
       $('insert-bibliography').disabled = false;
+      $('refresh-bibliography').disabled = !cslLibrary;
       setStatus('Ready to insert citations.');
     });
   } else {

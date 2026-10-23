@@ -23,6 +23,9 @@ output { display:block; background:#eaf1f8; padding:12px; border-radius:5px; min
 .formatted-preview { font-family:Georgia, 'Times New Roman', serif; color:#263947; background:#f4f6f8; }
 .reference-preview { margin:0; padding:11px 11px 11px 29px; border-radius:5px; background:#f4f6f8; color:#263947; font-family:Georgia, 'Times New Roman', serif; font-size:12px; line-height:1.45; }
 .reference-preview li + li { margin-top:8px; }
+.document-bibliography-preview { margin:12px 0 0; padding:0; list-style:none; color:#263947; font-family:Georgia, 'Times New Roman', serif; font-size:12px; line-height:1.45; }
+.document-bibliography-preview li { padding-left:18px; text-indent:-18px; }
+.document-bibliography-preview li + li { margin-top:10px; }
 button { display:block; width:100%; margin-top:14px; padding:11px; color:#fff; background:#174f79; font-weight:700; border:0; border-radius:5px; cursor:pointer; }
 button.secondary { margin-top:0; color:#174f79; background:#e7f0f7; border:1px solid #a9bfd0; }
 .button-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }

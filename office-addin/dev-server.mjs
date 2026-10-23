@@ -4,6 +4,7 @@ import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getHttpsServerOptions } from 'office-addin-dev-certs';
 import { requestPath } from './server-path.mjs';
+import './build-csl.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const port = Number.parseInt(process.env.BIBWORD_PORT || '3000', 10);

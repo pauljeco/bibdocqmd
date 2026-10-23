@@ -40,6 +40,11 @@
       </select>
       <label for="locator">Locator (optional)</label>
       <input id="locator" type="text" placeholder="p. 45" />
+      <label for="citation-style">Preview style</label>
+      <select id="citation-style">
+        <option value="apa">APA 7th edition</option>
+        <option value="harvard1">Harvard author-date</option>
+      </select>
       <div class="preview-label">Word display / Quarto syntax</div>
       <output id="citation-preview">[@key]</output>
       <div class="preview-label">Formatted citation preview</div>
@@ -48,15 +53,24 @@
       <ul id="reference-preview" class="reference-preview">
         <li>Load a bibliography and choose a citation key.</li>
       </ul>
-      <small>The preview uses a simple local author-year style. Final formatting is produced by Pandoc/CSL during export.</small>
+      <small>Formatted locally with Citation.js and citeproc-js. The Word citation remains editable Quarto syntax.</small>
       <div class="button-grid">
         <button id="insert" type="button" disabled>Insert new</button>
         <button id="update-selected" type="button" disabled>Update selected</button>
       </div>
       <p id="status" role="status" aria-live="polite"></p>
     </section>
+    <section aria-labelledby="document-preview-heading">
+      <h2 id="document-preview-heading">3. Preview the document bibliography</h2>
+      <p class="section-copy">Read all managed citations in this document and format their references in the selected CSL style.</p>
+      <button id="refresh-bibliography" class="secondary" type="button" disabled>Refresh document preview</button>
+      <small id="document-preview-status">Load a bibliography, then refresh the document preview.</small>
+      <ol id="document-bibliography-preview" class="document-bibliography-preview">
+        <li>No document references loaded.</li>
+      </ol>
+    </section>
     <section aria-labelledby="bibliography-heading">
-      <h2 id="bibliography-heading">3. Place the bibliography</h2>
+      <h2 id="bibliography-heading">4. Place the bibliography</h2>
       <p class="section-copy">Put the cursor where the formatted references must appear. BibWord stores a visible marker there; Quarto replaces it with the bibliography during export.</p>
       <button id="insert-bibliography" type="button" disabled>Insert bibliography marker</button>
       <small>Use one marker per document. Move it in Word whenever the bibliography position changes.</small>
@@ -66,6 +80,7 @@
       Export uses the companion <code>bibword_export.py</code> converter.
     </footer>
   </main>
+  <script src="dist/csl-engine.js"></script>
   <script src="citation.js"></script>
   <script src="taskpane.js"></script>
 </body>

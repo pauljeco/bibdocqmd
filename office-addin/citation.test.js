@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  activeKeyFragment, citationSyntax, formatCitationPreview, formatReference,
+  activeKeyFragment, citationKeysFromControls, citationSyntax, formatCitationPreview, formatReference,
   parseBibEntries, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
 
@@ -102,6 +102,17 @@ test('suggests keys for the active segment of a grouped citation', () => {
   assert.deepEqual(suggestKeys(keys, 'abarca2022spo-a; abar'), []);
   assert.equal(replaceActiveKey('abarca2022spo-a; bei', 'beier2010uol-a'),
     'abarca2022spo-a; beier2010uol-a');
+});
+
+test('collects unique citation keys from managed Word controls in document order', () => {
+  const keys = citationKeysFromControls([
+    { tag: 'ordinary', text: '[@ignored]' },
+    { tag: 'bibword:cite:v1:first', text: '[@smith2020; @jones2022]' },
+    { tag: 'bibword:refs:v1:marker', text: 'References' },
+    { tag: 'bibword:cite:v1:second', text: '@smith2020' },
+    { tag: 'bibword:cite:v1:third', text: '[-@brown2024, p. 7]' },
+  ]);
+  assert.deepEqual(keys, ['smith2020', 'jones2022', 'brown2024']);
 });
 
 test('rejects invalid input instead of creating ambiguous syntax', () => {

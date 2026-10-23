@@ -21,6 +21,8 @@ make check
 
 This creates `.venv`, installs the exporter and its test dependencies, installs the locked npm dependencies with `npm ci`, runs Python and JavaScript tests, and validates the Office manifest.
 
+The add-in test and development commands build `office-addin/dist/csl-engine.js` locally from the pinned Citation.js components. The generated bundle is intentionally ignored by Git.
+
 To set up the parts independently:
 
 ```bash
@@ -51,12 +53,13 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 1. Keep the HTTPS development server running.
 2. Open a Word document in Word for the web.
 3. Use **Add-ins** > **More Add-ins** > **My Add-ins** > **Upload My Add-in** and select `office-addin/manifest.xml`. The exact labels can vary by tenant.
-4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, and insert a citation.
+4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, confirm the APA CSL preview, and insert a citation.
 5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
-6. Put the cursor on a separate line where the references should appear and insert the bibliography marker.
-7. Save and reopen the document. Download it as DOCX.
-8. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and `bibword:refs:v1:`.
-9. Export it with the command below. Confirm that the `.qmd` contains a `#refs` Div at the marker position and that rendered references occur before any text following the marker.
+6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented.
+7. Put the cursor on a separate line where the references should appear and insert the bibliography marker.
+8. Save and reopen the document. Download it as DOCX.
+9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and `bibword:refs:v1:`.
+10. Export it with the command below. Confirm that the `.qmd` contains a `#refs` Div at the marker position and that rendered references occur before any text following the marker.
 
 ```bash
 .venv/bin/bibword-export downloaded.docx \
