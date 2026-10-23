@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and four inserted citation controls retained their tags in the downloaded DOCX. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and six inserted citation controls, including a two-key group, retained their tags in the downloaded DOCX. All six controls then exported through Quarto with the real BibLaTeX library and rendered successfully to HTML and DOCX. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -81,7 +81,7 @@ BibTeX file → Office.js task pane → inline tagged Quarto citation in Word
                                          references.bib
 ```
 
-Next: validate the Office.js insertion operation in **Word for the web and Windows Word**, then evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence. The repo uses React 17, citeproc, Apollo/GraphQL, an external API setting, and Office.js. That backend is not needed for this first proof of concept. Build a robust BibLaTeX parser and key-validation workflow before shipping.
+Next: test save/reopen persistence in **Word for the web**, validate the Office.js insertion operation in **Windows Word**, then evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence. The repo uses React 17, citeproc, Apollo/GraphQL, an external API setting, and Office.js. That backend is not needed for this first proof of concept. Build a robust BibLaTeX parser and key-validation workflow before shipping.
 
 ## Known limitations and test boundaries
 
