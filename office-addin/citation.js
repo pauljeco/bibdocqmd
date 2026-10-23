@@ -239,6 +239,36 @@
     return keys;
   }
 
+  function bibliographyTag(id, style) {
+    if (!/^[a-zA-Z0-9-]+$/.test(id)) throw new Error('Invalid bibliography marker identity.');
+    if (!/^[a-z0-9-]+$/.test(style)) throw new Error('Invalid bibliography style identifier.');
+    return `bibword:refs:v2:${id}:${style}`;
+  }
+
+  function parseBibliographyTag(tag) {
+    const legacyPrefix = 'bibword:refs:v1:';
+    const stylePrefix = 'bibword:refs:v2:';
+    if (tag.startsWith(legacyPrefix)) {
+      const id = tag.slice(legacyPrefix.length);
+      if (!id) throw new Error('Bibliography marker has no identity.');
+      return { version: 1, id, style: null };
+    }
+    if (!tag.startsWith(stylePrefix)) {
+      if (tag.startsWith('bibword:refs:')) throw new Error(`Unsupported bibliography marker: ${tag}`);
+      return null;
+    }
+    const metadata = tag.slice(stylePrefix.length);
+    const separator = metadata.lastIndexOf(':');
+    if (separator < 1 || separator === metadata.length - 1) {
+      throw new Error('Bibliography marker has invalid style metadata.');
+    }
+    return {
+      version: 2,
+      id: metadata.slice(0, separator),
+      style: metadata.slice(separator + 1),
+    };
+  }
+
   function familyName(person) {
     const clean = person.replace(/[{}]/g, '').trim();
     if (!clean) return '';
@@ -306,11 +336,13 @@
 
   return {
     activeKeyFragment,
+    bibliographyTag,
     citationKeysFromControls,
     citationSyntax,
     formatCitationPreview,
     formatReference,
     parseBibEntries,
+    parseBibliographyTag,
     parseCitationSyntax,
     parseKeys,
     replaceActiveKey,

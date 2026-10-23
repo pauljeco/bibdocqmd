@@ -10,7 +10,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from bibword.export import CitationError, citation_ast, export_docx, extract_tagged_controls
+from bibword.export import (
+    CitationError, bibliography_style_from_tag, citation_ast, export_docx,
+    extract_tagged_controls, materialize_csl_style,
+)
 
 DOCX = ROOT / 'examples' / 'bibword_demo.docx'
 BIB = ROOT / 'examples' / 'references.bib'
@@ -114,7 +117,7 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     marker = OxmlElement('w:sdt')
     marker_properties = OxmlElement('w:sdtPr')
     marker_tag = OxmlElement('w:tag')
-    marker_tag.set(qn('w:val'), 'bibword:refs:v1:test')
+    marker_tag.set(qn('w:val'), 'bibword:refs:v2:test:apa')
     marker_properties.append(marker_tag)
     marker_content = OxmlElement('w:sdtContent')
     marker_parent = marker_paragraph._p.getparent()
@@ -135,6 +138,30 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert '::: {#refs}' in text
     assert '# References {.unnumbered}' in text
     assert text.index('::: {#refs}') < text.index('# Content after references')
+    assert 'csl:' in text
+    assert 'bibword-apa.csl' in text
+    assert (tmp_path / 'bibword-apa.csl').is_file()
+
+
+def test_bibliography_marker_style_metadata_is_versioned_and_validated():
+    assert bibliography_style_from_tag('bibword:refs:v1:legacy') is None
+    assert bibliography_style_from_tag('bibword:refs:v2:marker-id:apa') == 'apa'
+    assert bibliography_style_from_tag('bibword:refs:v2:marker-id:harvard1') == 'harvard1'
+    with pytest.raises(CitationError, match='Unsupported bibliography style'):
+        bibliography_style_from_tag('bibword:refs:v2:marker-id:unknown')
+    with pytest.raises(CitationError, match='identity and CSL style'):
+        bibliography_style_from_tag('bibword:refs:v2:broken')
+    with pytest.raises(CitationError, match='Unsupported bibliography marker'):
+        bibliography_style_from_tag('bibword:refs:v3:future')
+
+
+def test_bundled_style_copy_does_not_overwrite_different_content(tmp_path):
+    target = materialize_csl_style('apa', tmp_path)
+    assert target.name == 'bibword-apa.csl'
+    assert '<title>APA Style 7th edition</title>' in target.read_text(encoding='utf-8')
+    target.write_text('user-owned style', encoding='utf-8')
+    with pytest.raises(CitationError, match='Refusing to overwrite'):
+        materialize_csl_style('apa', tmp_path)
 
 
 def test_invalid_docx_without_managed_citations(tmp_path):

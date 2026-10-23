@@ -3,8 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  activeKeyFragment, citationKeysFromControls, citationSyntax, formatCitationPreview, formatReference,
-  parseBibEntries, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
+  activeKeyFragment, bibliographyTag, citationKeysFromControls, citationSyntax,
+  formatCitationPreview, formatReference, parseBibEntries, parseBibliographyTag,
+  parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
 
 test('extracts entry keys and ignores BibTeX directives', () => {
@@ -113,6 +114,19 @@ test('collects unique citation keys from managed Word controls in document order
     { tag: 'bibword:cite:v1:third', text: '[-@brown2024, p. 7]' },
   ]);
   assert.deepEqual(keys, ['smith2020', 'jones2022', 'brown2024']);
+});
+
+test('versions bibliography tags and preserves legacy marker identities', () => {
+  assert.equal(bibliographyTag('marker-123', 'apa'), 'bibword:refs:v2:marker-123:apa');
+  assert.deepEqual(parseBibliographyTag('bibword:refs:v2:marker-123:harvard1'), {
+    version: 2, id: 'marker-123', style: 'harvard1',
+  });
+  assert.deepEqual(parseBibliographyTag('bibword:refs:v1:legacy-marker'), {
+    version: 1, id: 'legacy-marker', style: null,
+  });
+  assert.equal(parseBibliographyTag('bibword:cite:v1:not-a-marker'), null);
+  assert.throws(() => parseBibliographyTag('bibword:refs:v2:broken'), /invalid style metadata/);
+  assert.throws(() => parseBibliographyTag('bibword:refs:v3:future'), /Unsupported/);
 });
 
 test('rejects invalid input instead of creating ambiguous syntax', () => {

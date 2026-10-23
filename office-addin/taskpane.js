@@ -3,10 +3,11 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const {
-    citationKeysFromControls, citationSyntax, parseCitationSyntax,
-    replaceActiveKey, suggestKeys,
+    bibliographyTag, citationKeysFromControls, citationSyntax, parseBibliographyTag,
+    parseCitationSyntax, replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
-  const { createLibrary } = globalThis.BibWordCsl;
+  const { createLibrary, CSL_STYLES } = globalThis.BibWordCsl;
+  const styleIds = new Set(CSL_STYLES.map(({ id }) => id));
   let knownKeys = null;
   let cslLibrary = null;
   let officeReady = false;
@@ -35,6 +36,10 @@
 
   function selectedStyle() {
     return $('citation-style').value;
+  }
+
+  function uniqueId() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   }
 
   function replaceListContents(list, messages) {
@@ -200,6 +205,50 @@
     }
   }
 
+  async function persistSelectedStyle() {
+    let saved = false;
+    await Word.run(async (context) => {
+      const controls = context.document.contentControls;
+      controls.load('items/tag');
+      await context.sync();
+      const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
+      if (markers.length > 1) throw new Error('The document contains multiple bibliography markers.');
+      if (!markers.length) return;
+      const metadata = parseBibliographyTag(markers[0].tag);
+      if (!metadata) return;
+      markers[0].tag = bibliographyTag(metadata.id, selectedStyle());
+      await context.sync();
+      saved = true;
+    });
+    return saved;
+  }
+
+  async function restoreDocumentStyle() {
+    try {
+      let markerTag = null;
+      await Word.run(async (context) => {
+        const controls = context.document.contentControls;
+        controls.load('items/tag');
+        await context.sync();
+        const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
+        if (markers.length > 1) throw new Error('The document contains multiple bibliography markers.');
+        markerTag = markers[0]?.tag || null;
+      });
+      if (!markerTag) return;
+      const metadata = parseBibliographyTag(markerTag);
+      if (metadata?.style) {
+        if (!styleIds.has(metadata.style)) {
+          throw new Error(`The document uses an unsupported citation style: ${metadata.style}`);
+        }
+        $('citation-style').value = metadata.style;
+        updatePreview();
+        setStatus('Citation style restored from the document bibliography marker.');
+      }
+    } catch (error) {
+      setStatus('Could not restore the document citation style: ' + (error.message || String(error)), true);
+    }
+  }
+
   async function insertIntoWord() {
     if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
     let syntax;
@@ -213,7 +262,7 @@
         const selection = context.document.getSelection();
         const inserted = selection.insertText(syntax, Word.InsertLocation.replace);
         const control = inserted.insertContentControl();
-        control.tag = 'bibword:cite:v1:' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        control.tag = 'bibword:cite:v1:' + uniqueId();
         control.title = 'BibWord citation';
         inserted.font.name = 'Consolas';
         inserted.font.color = '#165789';
@@ -297,18 +346,18 @@
         const controls = context.document.contentControls;
         controls.load('items/tag');
         await context.sync();
-        if (controls.items.some((control) => control.tag.startsWith('bibword:refs:v1:'))) {
+        if (controls.items.some((control) => control.tag.startsWith('bibword:refs:'))) {
           throw new Error('This document already contains a BibWord bibliography marker.');
         }
         const selection = context.document.getSelection();
         const paragraph = selection.insertParagraph('References', Word.InsertLocation.after);
         paragraph.styleBuiltIn = 'Heading1';
         const control = paragraph.insertContentControl();
-        control.tag = 'bibword:refs:v1:' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        control.tag = bibliographyTag(uniqueId(), selectedStyle());
         control.title = 'BibWord bibliography position';
         await context.sync();
       });
-      setStatus('Bibliography marker inserted. Quarto will place formatted references here.');
+      setStatus('Bibliography marker inserted with the selected CSL style.');
     } catch (error) {
       setStatus('Bibliography marker failed: ' + (error.message || String(error)), true);
     }
@@ -323,9 +372,17 @@
   $('citation-keys').addEventListener('keydown', handleKeyPickerKeyboard);
   $('locator').addEventListener('input', updatePreview);
   $('mode').addEventListener('change', updatePreview);
-  $('citation-style').addEventListener('change', () => {
+  $('citation-style').addEventListener('change', async () => {
     updatePreview();
     renderDocumentBibliography();
+    if (!officeReady) return;
+    try {
+      if (await persistSelectedStyle()) {
+        setStatus('Citation style saved with the document bibliography marker.');
+      }
+    } catch (error) {
+      setStatus('Could not save the citation style: ' + (error.message || String(error)), true);
+    }
   });
   $('insert').addEventListener('click', insertIntoWord);
   $('load-selected').addEventListener('click', loadSelectedCitation);
@@ -352,6 +409,7 @@
       $('insert-bibliography').disabled = false;
       $('refresh-bibliography').disabled = !cslLibrary;
       setStatus('Ready to insert citations.');
+      restoreDocumentStyle();
     });
   } else {
     setStatus('Office.js unavailable. Load the add-in within Microsoft Word.', true);

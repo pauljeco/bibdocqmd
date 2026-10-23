@@ -23,13 +23,57 @@ from lxml import etree
 NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 W = '{' + NS['w'] + '}'
 CITATION_TAG_PREFIX = 'bibword:cite:v1:'
-BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:v1:'
+BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:'
+BIBLIOGRAPHY_TAG_V1_PREFIX = 'bibword:refs:v1:'
+BIBLIOGRAPHY_TAG_V2_PREFIX = 'bibword:refs:v2:'
+SUPPORTED_STYLES = {
+    'apa': 'apa.csl',
+    'harvard1': 'harvard1.csl',
+}
 TOKEN_PATTERN = re.compile(r'BIBWORDCIT\d{6}TOKEN')
 BIB_KEY_PATTERN = re.compile(r'^\s*@\w+\s*[({]\s*([^,\s]+)\s*,', re.M)
 
 
 class CitationError(ValueError):
     """Citation is invalid or could not be mapped to Pandoc syntax."""
+
+
+def bibliography_style_from_tag(tag: str) -> str | None:
+    """Return persisted style metadata while accepting legacy v1 markers."""
+    if tag.startswith(BIBLIOGRAPHY_TAG_V1_PREFIX):
+        if not tag.removeprefix(BIBLIOGRAPHY_TAG_V1_PREFIX):
+            raise CitationError('Bibliography marker has no identity.')
+        return None
+    if not tag.startswith(BIBLIOGRAPHY_TAG_V2_PREFIX):
+        raise CitationError(f'Unsupported bibliography marker: {tag}')
+    metadata = tag.removeprefix(BIBLIOGRAPHY_TAG_V2_PREFIX)
+    marker_id, separator, style = metadata.rpartition(':')
+    if not separator or not marker_id or not style:
+        raise CitationError('Bibliography v2 marker must contain an identity and CSL style.')
+    if style not in SUPPORTED_STYLES:
+        raise CitationError(f'Unsupported bibliography style: {style}')
+    return style
+
+
+def csl_style_path(style: str) -> Path:
+    filename = SUPPORTED_STYLES.get(style)
+    if not filename:
+        raise CitationError(f'Unsupported bibliography style: {style}')
+    path = Path(__file__).with_name('styles') / filename
+    if not path.is_file():
+        raise CitationError(f'Bundled CSL style is missing: {path}')
+    return path
+
+
+def materialize_csl_style(style: str, destination: Path) -> Path:
+    """Copy the selected bundled style beside the QMD without silent overwrite."""
+    source = csl_style_path(style)
+    target = destination / f'bibword-{source.name}'
+    content = source.read_bytes()
+    if target.exists() and target.read_bytes() != content:
+        raise CitationError(f'Refusing to overwrite a different CSL file: {target}')
+    target.write_bytes(content)
+    return target
 
 
 def run_pandoc(*args: str, stdin: str | None = None) -> str:
@@ -86,7 +130,11 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
                 raise CitationError('Bibliography marker must occupy its own paragraph.')
             bibliography_found = True
             marker_title = ''.join(content.xpath('.//w:t/text()', namespaces=NS)).strip()
-            ast = {'t': 'BibWordBibliography', 'title': marker_title or 'References'}
+            ast = {
+                't': 'BibWordBibliography',
+                'title': marker_title or 'References',
+                'style': bibliography_style_from_tag(value),
+            }
         token = f'BIBWORDCIT{len(mapping) + 1:06d}TOKEN'
         mapping[token] = ast
         parent = control.getparent()
@@ -216,9 +264,15 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
     relative_bib = relpath(bib_path, qmd_path.parent).replace('\\', '/')
     frontmatter = ('---\n'
                    f'title: {json.dumps(title, ensure_ascii=False)}\n'
-                   f'bibliography: {json.dumps(relative_bib, ensure_ascii=False)}\n'
-                   'format:\n  html: default\n  docx: default\n'
-                   '---\n\n')
+                   f'bibliography: {json.dumps(relative_bib, ensure_ascii=False)}\n')
+    styles = {value.get('style') for value in mapping.values()
+              if value.get('t') == 'BibWordBibliography' and value.get('style')}
+    if styles:
+        style = styles.pop()
+        relative_csl = relpath(materialize_csl_style(style, qmd_path.parent),
+                               qmd_path.parent).replace('\\', '/')
+        frontmatter += f'csl: {json.dumps(relative_csl, ensure_ascii=False)}\n'
+    frontmatter += 'format:\n  html: default\n  docx: default\n---\n\n'
     qmd_path.write_text(frontmatter + rendered, encoding='utf-8')
     return len(citations)
 

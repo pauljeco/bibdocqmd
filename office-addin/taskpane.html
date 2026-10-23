@@ -40,7 +40,7 @@
       </select>
       <label for="locator">Locator (optional)</label>
       <input id="locator" type="text" placeholder="p. 45" />
-      <label for="citation-style">Preview style</label>
+      <label for="citation-style">Citation style</label>
       <select id="citation-style">
         <option value="apa">APA 7th edition</option>
         <option value="harvard1">Harvard author-date</option>
@@ -53,7 +53,7 @@
       <ul id="reference-preview" class="reference-preview">
         <li>Load a bibliography and choose a citation key.</li>
       </ul>
-      <small>Formatted locally with Citation.js and citeproc-js. The Word citation remains editable Quarto syntax.</small>
+      <small>Formatted locally with Citation.js and citeproc-js. Once a bibliography marker exists, its style is stored with the document and applied during export.</small>
       <div class="button-grid">
         <button id="insert" type="button" disabled>Insert new</button>
         <button id="update-selected" type="button" disabled>Update selected</button>
