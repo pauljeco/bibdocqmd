@@ -63,7 +63,7 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 7. Put the cursor where the references must appear and choose **Insert bibliography marker**. Use one marker per document.
 8. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. One Word-for-the-web insertion/download path has been verified, but editing, bibliography-marker insertion, save/reopen, copy/paste, coauthoring, and broad host compatibility remain pending in the real host. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. The browser-side `.bib` reader and author-year preview are deliberately lightweight and are **not** a full BibLaTeX/CSL processor. Final citation and bibliography formatting is produced by Pandoc/CSL during export; Word stores visible keys plus a visible bibliography-position marker.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, save/reopen persistence, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. The browser-side `.bib` reader and author-year preview are deliberately lightweight and are **not** a full BibLaTeX/CSL processor. Final citation and bibliography formatting is produced by Pandoc/CSL during export; Word stores visible keys plus a visible bibliography-position marker.
 
 ## Architecture and next steps
 
@@ -84,7 +84,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: test citation editing and bibliography-marker persistence in **Word for the web**, then validate the same workflow in **Windows Word**. After host validation, replace the lightweight browser preview with a real CSL processor and a robust BibLaTeX parser. Then evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
+Next: replace the lightweight browser preview with a real CSL processor and a robust BibLaTeX parser, while retaining visible Quarto citation syntax as the document authority. Then validate the same workflow in **Windows Word** and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
 
 ## Known limitations and test boundaries
 
