@@ -8,6 +8,7 @@
 - Pure citation construction and basic key scanning were separated from the Office host so they can be exercised by Node's built-in test runner.
 - The local HTTPS server now reads credentials directly from `office-addin-dev-certs`; developers no longer copy private keys into the source tree.
 - Real Word-for-the-web tests on Ubuntu/Firefox succeeded on 23 October 2026: eight citation controls and a bibliography marker survived save/reopen and DOCX download; bundled and custom CSL styles persisted; and a generated nine-entry bibliography retained italics and hanging indents. Copy/paste, collaboration, and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
+- The first formatted-citation toggle host test converted one citation and then returned `ApiNotFound`. The downloaded package showed that replacement and alias persistence had succeeded before Word rejected `Range.font.reset()`. The unsupported call was removed; the exporter successfully recovered all eight citations from the resulting mixed formatted/key-view document.
 - The current `office-addin-dev-certs` 3.0.1 dependency brings a high-severity `node-forge` advisory through `mkcert`, with no npm-published fix reported on this date. It is a development-only certificate tool and is not shipped in the task pane, but it should be replaced or upgraded once a fixed upstream version is available.
 
 ## User-facing requirement

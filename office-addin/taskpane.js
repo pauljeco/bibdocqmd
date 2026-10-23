@@ -67,13 +67,10 @@
   }
 
   function applyKeyFormatting(range) {
-    range.font.reset();
+    // Keep this to WordApi 1.1 setters. Word for the web returned ApiNotFound
+    // for Font.reset after applying only the first citation in a batch.
     range.font.name = 'Consolas';
     range.font.color = '#165789';
-  }
-
-  function applyFormattedCitationFormatting(range) {
-    range.font.reset();
   }
 
   function bytesToBase64(value) {
@@ -541,8 +538,9 @@
           : syntax;
         const updated = control.insertText(display, Word.InsertLocation.replace);
         control.title = formatted ? citationSourceTitle(syntax) : CITATION_TITLE;
-        if (formatted) applyFormattedCitationFormatting(updated);
-        else applyKeyFormatting(updated);
+        // Replacing text in formatted view already restores inherited run
+        // formatting in Word for the web; do not call the unavailable Font.reset.
+        if (!formatted) applyKeyFormatting(updated);
         await context.sync();
       });
       $('editing-status').textContent = `Editing ${syntax}`;
@@ -578,7 +576,6 @@
           const updated = control.insertText(text, Word.InsertLocation.replace);
           if (mode === 'formatted') {
             control.title = citationSourceTitle(source);
-            applyFormattedCitationFormatting(updated);
           } else {
             control.title = CITATION_TITLE;
             applyKeyFormatting(updated);
