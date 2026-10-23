@@ -2,7 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { citationSyntax, parseKeys } = require('./citation.js');
+const {
+  activeKeyFragment, citationSyntax, parseKeys, replaceActiveKey, suggestKeys,
+} = require('./citation.js');
 
 test('extracts entry keys and ignores BibTeX directives', () => {
   const keys = parseKeys(`
@@ -20,6 +22,16 @@ test('builds supported Pandoc citation forms', () => {
     '[@smith2020; @jones2022]');
   assert.equal(citationSyntax(['smith2020'], 'narrative', 'p. 4'), '@smith2020 [p. 4]');
   assert.equal(citationSyntax(['smith2020'], 'suppress', 'ch. 2'), '[-@smith2020, ch. 2]');
+});
+
+test('suggests keys for the active segment of a grouped citation', () => {
+  const keys = new Set(['abarca2022spo-a', 'beier2010uol-a', 'brost2012', 'smith2020']);
+  assert.equal(activeKeyFragment('abarca2022spo-a; bei'), 'bei');
+  assert.deepEqual(suggestKeys(keys, 'abarca2022spo-a; bei'), ['beier2010uol-a']);
+  assert.deepEqual(suggestKeys(keys, 'abarca2022spo-a; 2012'), ['brost2012']);
+  assert.deepEqual(suggestKeys(keys, 'abarca2022spo-a; abar'), []);
+  assert.equal(replaceActiveKey('abarca2022spo-a; bei', 'beier2010uol-a'),
+    'abarca2022spo-a; beier2010uol-a');
 });
 
 test('rejects invalid input instead of creating ambiguous syntax', () => {

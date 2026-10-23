@@ -11,6 +11,10 @@ h2 { font-size:14px; margin:0 0 13px; }
 label { display:block; font-size:12px; font-weight:600; margin:12px 0 5px; }
 input, select { background:#fff; border:1px solid #abbccc; border-radius:5px; padding:9px; width:100%; font-size:13px; color:#223847; }
 input[type=file] { padding:8px 0; border:0; }
+.key-picker { position:relative; }
+.key-suggestions { position:absolute; z-index:10; left:0; right:0; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #8da5b8; border-radius:0 0 5px 5px; box-shadow:0 5px 12px rgba(25,43,55,.16); }
+.key-suggestion { display:block; width:100%; margin:0; padding:8px 9px; border:0; border-radius:0; background:#fff; color:#223847; font-family:Consolas, 'Liberation Mono', monospace; font-size:12px; font-weight:400; text-align:left; cursor:pointer; }
+.key-suggestion:hover, .key-suggestion[aria-selected=true] { background:#dcebf6; color:#123f60; }
 small { display:block; font-size:11px; color:#637485; margin-top:6px; }
 code,output { font-family:Consolas, 'Liberation Mono', monospace; }
 .preview-label { font-size:11px; font-weight:700; margin:18px 0 7px; color:#557084; }

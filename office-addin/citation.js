@@ -18,6 +18,33 @@
     return found;
   }
 
+  function activeKeyFragment(value) {
+    return value.slice(value.lastIndexOf(';') + 1).trim();
+  }
+
+  function suggestKeys(keys, value, limit = 8) {
+    const fragment = activeKeyFragment(value).toLowerCase();
+    if (!fragment) return [];
+    const completed = new Set(
+      value.split(';').slice(0, -1).map((key) => key.trim()).filter(Boolean),
+    );
+    return [...keys]
+      .filter((key) => !completed.has(key) && key.toLowerCase().includes(fragment))
+      .sort((left, right) => {
+        const leftStarts = left.toLowerCase().startsWith(fragment);
+        const rightStarts = right.toLowerCase().startsWith(fragment);
+        if (leftStarts !== rightStarts) return leftStarts ? -1 : 1;
+        return left.localeCompare(right);
+      })
+      .slice(0, limit);
+  }
+
+  function replaceActiveKey(value, key) {
+    const separator = value.lastIndexOf(';');
+    if (separator < 0) return key;
+    return `${value.slice(0, separator).trimEnd()}; ${key}`;
+  }
+
   function citationSyntax(keys, mode, locator) {
     if (!keys.length) throw new Error('Enter at least one citation key.');
     if (keys.some((key) => !/^[a-zA-Z0-9_][a-zA-Z0-9_:.$#%&+?<>~/-]*$/.test(key))) {
@@ -38,5 +65,5 @@
     return `[${entries.join('; ')}]`;
   }
 
-  return { citationSyntax, parseKeys };
+  return { activeKeyFragment, citationSyntax, parseKeys, replaceActiveKey, suggestKeys };
 }));

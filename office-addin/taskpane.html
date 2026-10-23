@@ -23,10 +23,13 @@
     <section aria-labelledby="citation-heading">
       <h2 id="citation-heading">2. Insert a citation</h2>
       <label for="citation-keys">Citation keys</label>
-      <input id="citation-keys" list="known-keys" autocomplete="off" spellcheck="false"
-             placeholder="smith2020; jones2022" />
-      <datalist id="known-keys"></datalist>
-      <small>Use a semicolon to separate multiple keys.</small>
+      <div class="key-picker">
+        <input id="citation-keys" autocomplete="off" spellcheck="false"
+               role="combobox" aria-autocomplete="list" aria-expanded="false"
+               aria-controls="key-suggestions" placeholder="smith2020; jones2022" />
+        <div id="key-suggestions" class="key-suggestions" role="listbox" hidden></div>
+      </div>
+      <small>Type any part of a key. Use a semicolon to add another reference.</small>
       <label for="mode">Mode</label>
       <select id="mode">
         <option value="parenthetical">Parenthetical: [@key]</option>
