@@ -1,10 +1,10 @@
 # Word host validation matrix
 
-No real Microsoft Word host has been validated in this repository yet. Do not convert blank cells into claims of support.
+Real-host results are deliberately narrow. Do not generalize a successful test beyond the operations recorded here.
 
 | Date | Host | OS/browser | Add-in loads | Citation inserted | Save/reopen retains tag | Downloaded DOCX retains tag | Export succeeds | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Pending | Word for the web | Ubuntu 24.04 / Firefox | Not tested | Not tested | Not tested | Not tested | Not tested | Requires tenant sideloading access |
+| 2026-10-23 | Word for the web | Ubuntu 24.04 / Firefox (version not recorded) | Yes | Yes, four controls | Not separately verified | Yes, all four tags | Citation extraction succeeds; full export pending source `.bib` | Parenthetical, narrative, suppressed-author, and locator semantics parsed correctly from downloaded DOCX |
 | Pending | Word desktop | Windows 11 | Not tested | Not tested | Not tested | Not tested | Not tested | Test a current Microsoft 365 build |
 
 For each run, record the exact Word build, browser version, tenant/sideload method, document save path, and whether `word/document.xml` contains the expected `bibword:cite:v1:` tag.

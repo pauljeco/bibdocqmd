@@ -7,7 +7,7 @@
 - Microsoft `office-addin-manifest` 3.0.1 confirmed that the XML follows the current add-in schema. Its broader acceptance check initially rejected the prototype's `0.1.0.0` manifest version and missing support URL; both were corrected. The manifest now declares the WordApi 1.1 requirement used by range insertion and rich-text content controls.
 - Pure citation construction and basic key scanning were separated from the Office host so they can be exercised by Node's built-in test runner.
 - The local HTTPS server now reads credentials directly from `office-addin-dev-certs`; developers no longer copy private keys into the source tree.
-- Real Word for the web and Word desktop testing remains pending. Automated tests and manifest validation are not recorded as host acceptance.
+- A first real Word-for-the-web test on Ubuntu/Firefox succeeded on 23 October 2026: the pane loaded, four citations were inserted, and their inline content-control tags survived DOCX download. Save/reopen, collaboration, and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
 - The current `office-addin-dev-certs` 3.0.1 dependency brings a high-severity `node-forge` advisory through `mkcert`, with no npm-published fix reported on this date. It is a development-only certificate tool and is not shipped in the task pane, but it should be replaced or upgraded once a fixed upstream version is available.
 
 ## User-facing requirement

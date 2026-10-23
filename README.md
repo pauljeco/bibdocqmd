@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. The Office.js pane still **has not been tested inside Word desktop or Word for the web**; a tenant may block sideloading. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox and four inserted citation controls retained their tags in the downloaded DOCX. Save/reopen, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -61,7 +61,7 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 5. In the task pane, load `examples/references.bib`, enter `smith2020`, and insert `[@smith2020]` or `@smith2020`.
 6. Save, reopen, and download the document as `.docx`; inspect the retained content-control tag and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate; some Microsoft 365 tenants disallow sideloading; real Word-host testing remains pending. The manifest passes Microsoft's automated validator, but that does not prove host compatibility. The `.bib` scanner only extracts basic keys and is **not** a full BibLaTeX parser. The add-in does not yet insert bibliographies or provide a formatted CSL preview. Word web compatibility is an intended target, not yet a verified result.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. One Word-for-the-web insertion/download path has been verified, but save/reopen, copy/paste, coauthoring, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. The `.bib` scanner only extracts basic keys and is **not** a full BibLaTeX parser. The add-in does not yet insert bibliographies or provide a formatted CSL preview.
 
 ## Architecture and next steps
 
