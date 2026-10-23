@@ -43,6 +43,24 @@
     return $('citation-style').value;
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[character]);
+  }
+
+  function wordBibliographyHtml(title, bibliography) {
+    const styled = bibliography
+      .replace('class="csl-bib-body"', 'class="csl-bib-body" style="margin:0;"')
+      .replace(/class="csl-entry"/g,
+        'class="csl-entry" style="margin-left:0.5in;text-indent:-0.5in;margin-bottom:0.12in;"');
+    return `<h1>${escapeHtml(title)}</h1>${styled}`;
+  }
+
+  function markWordBibliographyStale(message = 'The Word bibliography may be out of date. Choose Update in Word.') {
+    $('bibliography-render-status').textContent = message;
+  }
+
   function bytesToBase64(value) {
     const bytes = new TextEncoder().encode(value);
     let binary = '';
@@ -239,7 +257,9 @@
       knownKeys = new Set(cslLibrary.keys);
       $('library-status').textContent = `${file.name}: ${cslLibrary.size} entries parsed as BibLaTeX/CSL.`;
       $('refresh-bibliography').disabled = !officeReady;
+      $('format-bibliography').disabled = !officeReady;
       setStatus('Bibliography parsed locally with Citation.js; no file data uploaded.');
+      markWordBibliographyStale();
       renderSuggestions();
       updatePreview();
       if (documentCitationKeys.length) renderDocumentBibliography();
@@ -247,6 +267,7 @@
       cslLibrary = null;
       knownKeys = null;
       $('refresh-bibliography').disabled = true;
+      $('format-bibliography').disabled = true;
       setStatus(error.message, true);
     }
   }
@@ -324,6 +345,7 @@
       $('style-status').textContent = `${file.name} loaded as ${style.id}.`;
       updatePreview();
       renderDocumentBibliography();
+      markWordBibliographyStale();
       if (officeReady && await persistSelectedStyle()) {
         setStatus('Custom CSL style embedded and saved with the bibliography marker.');
       } else {
@@ -429,6 +451,7 @@
         await context.sync();
       });
       setStatus('Citation inserted with editable Quarto syntax.');
+      markWordBibliographyStale();
     } catch (error) {
       setStatus('Word insertion failed: ' + (error.message || String(error)), true);
     }
@@ -494,6 +517,7 @@
       });
       $('editing-status').textContent = `Editing ${syntax}`;
       setStatus('Selected citation updated without changing its BibWord identity.');
+      markWordBibliographyStale();
     } catch (error) {
       setStatus('Word update failed: ' + (error.message || String(error)), true);
     }
@@ -524,8 +548,55 @@
         await context.sync();
       });
       setStatus('Bibliography marker inserted with the selected CSL style.');
+      markWordBibliographyStale('Bibliography marker inserted. Choose Update in Word to generate references.');
     } catch (error) {
       setStatus('Bibliography marker failed: ' + (error.message || String(error)), true);
+    }
+  }
+
+  async function formatBibliographyInWord() {
+    if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
+    if (!cslLibrary) return setStatus('Load a bibliography before formatting it in Word.', true);
+    try {
+      let referenceCount = 0;
+      await Word.run(async (context) => {
+        const controls = context.document.contentControls;
+        controls.load('items/tag,text');
+        await context.sync();
+        const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
+        if (markers.length !== 1) {
+          throw new Error(markers.length
+            ? 'The document contains multiple bibliography markers.'
+            : 'Insert a bibliography marker before updating the Word bibliography.');
+        }
+        const keys = citationKeysFromControls(
+          controls.items.map(({ tag, text }) => ({ tag, text })),
+        );
+        if (!keys.length) throw new Error('The document has no managed citations to format.');
+        const marker = markers[0];
+        const metadata = parseBibliographyTag(marker.tag);
+        const styleId = selectedStyle();
+        if (customStyleIdPattern.test(styleId)) {
+          const style = customStyles.get(styleId);
+          if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
+          await ensureCustomStylePart(context, style);
+        }
+        const title = marker.text.split(/[\r\n]+/)[0].trim() || 'References';
+        const bibliography = cslLibrary.formatBibliographyHtml(keys, styleId);
+        marker.tag = bibliographyTag(metadata.id, styleId);
+        marker.title = 'BibWord bibliography position and generated references';
+        marker.insertHtml(wordBibliographyHtml(title, bibliography), Word.InsertLocation.replace);
+        await context.sync();
+        documentCitationKeys = keys;
+        referenceCount = keys.length;
+      });
+      renderDocumentBibliography();
+      const styleLabel = $('citation-style').selectedOptions[0].textContent;
+      $('bibliography-render-status').textContent = `${referenceCount} references formatted in Word with ${styleLabel}.`;
+      setStatus('Word bibliography updated. Export will rebuild it from the citation keys.');
+    } catch (error) {
+      $('bibliography-render-status').textContent = error.message || String(error);
+      setStatus('Could not update the Word bibliography: ' + (error.message || String(error)), true);
     }
   }
 
@@ -542,6 +613,7 @@
   $('citation-style').addEventListener('change', async () => {
     updatePreview();
     renderDocumentBibliography();
+    markWordBibliographyStale();
     if (!officeReady) return;
     try {
       if (await persistSelectedStyle()) {
@@ -555,6 +627,7 @@
   $('load-selected').addEventListener('click', loadSelectedCitation);
   $('update-selected').addEventListener('click', updateSelectedCitation);
   $('insert-bibliography').addEventListener('click', insertBibliographyMarker);
+  $('format-bibliography').addEventListener('click', formatBibliographyInWord);
   $('refresh-bibliography').addEventListener('click', refreshDocumentBibliography);
   document.addEventListener('click', (event) => {
     if (!$('citation-keys').closest('.key-picker').contains(event.target)) hideSuggestions();
@@ -575,6 +648,7 @@
       $('load-selected').disabled = false;
       $('insert-bibliography').disabled = false;
       $('refresh-bibliography').disabled = !cslLibrary;
+      $('format-bibliography').disabled = !cslLibrary;
       setStatus('Ready to insert citations.');
       restoreDocumentStyle();
     });

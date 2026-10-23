@@ -202,10 +202,14 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
         else:
             if bibliography_found:
                 raise CitationError('Only one BibWord bibliography marker is allowed.')
-            if not content.xpath('./w:p', namespaces=NS):
+            marker_paragraphs = content.xpath('./w:p', namespaces=NS)
+            if not marker_paragraphs:
                 raise CitationError('Bibliography marker must occupy its own paragraph.')
             bibliography_found = True
-            marker_title = ''.join(content.xpath('.//w:t/text()', namespaces=NS)).strip()
+            # A Word-formatted bibliography may occupy later paragraphs inside
+            # the marker. Only the first paragraph is the authoritative title.
+            marker_title = ''.join(marker_paragraphs[0].xpath('.//w:t/text()',
+                                   namespaces=NS)).strip()
             ast = {
                 't': 'BibWordBibliography',
                 'title': marker_title or 'References',

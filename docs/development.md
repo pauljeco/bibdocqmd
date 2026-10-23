@@ -56,10 +56,10 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, confirm the APA CSL preview, and insert a citation.
 5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
 6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
-7. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion.
-8. Save and reopen the document. Confirm that the saved style is restored, then download the document as DOCX.
+7. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion, then choose **Update in Word**. Confirm that the marker now contains the heading and all formatted references.
+8. Save and reopen the document. Confirm that both the saved style and generated bibliography remain, then download the document as DOCX.
 9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
-10. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, and that rendered references occur before any text following the marker.
+10. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, that the generated Word references are not duplicated in the QMD, and that rendered references occur before any text following the marker.
 
 ```bash
 .venv/bin/bibword-export downloaded.docx \

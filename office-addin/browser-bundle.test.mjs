@@ -22,4 +22,5 @@ test('the generated CSL bundle exposes a browser-safe global API', async () => {
   );
   assert.equal(library.formatCitation(['x'], 'narrative', 'p. 2', 'apa'),
     'Doe (2024, p. 2)');
+  assert.match(library.formatBibliographyHtml(['x'], 'apa'), /class="csl-entry"/);
 });

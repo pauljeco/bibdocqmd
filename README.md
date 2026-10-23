@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, and custom CSL import all worked in the real host. Downloaded documents retained both Harvard metadata and an embedded custom APA style; the exporter produced matching citations and references at the explicit marker. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, and custom CSL import all worked in the real host. Downloaded documents retained both Harvard metadata and an embedded custom APA style; the exporter produced matching citations and references at the explicit marker. In-document bibliography generation is implemented and awaits a host test. Copy/paste, formatted citation display, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -10,7 +10,7 @@ A **working first development step** toward a BibTeX-native citation manager for
 - `examples/references.bib`: the matching demonstration bibliography (fictional sources, not scholarly references).
 - `examples/bibword_demo.qmd`: exported Quarto document containing *real* Pandoc citations with their original keys, modes, and locators.
 - `src/bibword/export.py`: runnable DOCX-to-Quarto converter, retaining Word document structure through Pandoc and replacing citation control markers with native Pandoc `Cite` nodes.
-- `office-addin/`: experimental Office.js task pane. Choose a `.bib` file locally, insert or update tagged citation syntax, preview references with bundled or imported CSL, preview all document references, and insert an explicit bibliography-position marker.
+- `office-addin/`: experimental Office.js task pane. Choose a `.bib` file locally, insert or update tagged citation syntax, preview references with bundled or imported CSL, generate a formatted Word bibliography, and control its position with an explicit marker.
 - `tests/test_export.py`: regression tests for citation modes, preservation and invalid references.
 
 ## Why the visible syntax is the stored syntax
@@ -61,8 +61,9 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 5. In the task pane, load `examples/references.bib`, enter `smith2020`, choose a bundled style or import an independent `.csl` file, inspect the CSL-formatted preview, and insert `[@smith2020]` or `@smith2020`.
 6. To edit, put the Word cursor inside the blue citation, choose **Load selected citation**, change its fields, then choose **Update selected**.
 7. Choose **Refresh document preview** to format all unique managed references in the pane.
-8. Put the cursor where the references must appear and choose **Insert bibliography marker**. Use one marker per document. Changing the citation style after inserting the marker updates its stored export style.
-9. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
+8. Put the cursor where the references must appear and choose **Insert marker**. Use one marker per document. Changing the citation style after inserting the marker updates its stored export style.
+9. Choose **Update in Word** to write the CSL-formatted bibliography inside the marker. Repeat this after citation, library, or style changes.
+10. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
 **Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores visible keys plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
@@ -85,7 +86,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: validate the workflow in **Windows Word**, then test copy/paste and coauthoring behavior and evaluate which parts of [JabRef-Word-Addin](https://github.com/JabRef/JabRef-Word-Addin) can be reused under its MIT licence without adopting its external backend.
+Next: validate in-document bibliography generation in **Word for the web**, then add a safe document-wide toggle between visible citation keys and formatted citations. After that, test copy/paste and validate the workflow in **Windows Word**.
 
 ## Known limitations and test boundaries
 
@@ -99,6 +100,7 @@ Next: validate the workflow in **Windows Word**, then test copy/paste and coauth
 - The Office add-in has no server-side data storage. A locally chosen `.bib` file is only read in the browser, not uploaded.
 - New bibliography markers use `bibword:refs:v2:<identity>:<style>`. Legacy `v1` markers remain exportable but have no stored style and therefore use Pandoc's default.
 - Imported independent CSL styles use a `custom-<hash>` style identifier and a namespaced custom XML part inside the DOCX. The exporter verifies the full SHA-256 hash before using the embedded data. This path requires WordApi 1.4; bundled styles continue to work on the prototype's WordApi 1.1 baseline.
+- The generated Word bibliography lives inside the bibliography marker. The exporter intentionally discards those display paragraphs and regenerates the final bibliography from managed citation keys, preventing duplicate or stale references in Quarto output.
 - The in-pane preview and exporter use the same bundled or embedded CSL source. Exported Quarto, HTML, and DOCX output remains the final formatting authority.
 
 ## Licence and attribution

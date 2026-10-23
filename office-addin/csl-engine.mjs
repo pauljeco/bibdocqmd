@@ -151,6 +151,15 @@ export class CslLibrary {
       format: 'text', style, lang: 'en-US', entry: keys, asEntryArray: true,
     }).map(([id, text]) => ({ id: String(id), text: normalizeText(text) }));
   }
+
+  formatBibliographyHtml(keys, style = 'apa') {
+    assertStyle(style);
+    if (!keys.length) return '';
+    this.assertKeys(keys);
+    return this.cite.format('bibliography', {
+      format: 'html', style, lang: 'en-US', entry: keys,
+    });
+  }
 }
 
 export function createLibrary(bibtex) {

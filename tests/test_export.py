@@ -129,6 +129,13 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     marker_index = marker_parent.index(marker_paragraph._p)
     marker_parent.remove(marker_paragraph._p)
     marker_content.append(marker_paragraph._p)
+    generated_paragraph = OxmlElement('w:p')
+    generated_run = OxmlElement('w:r')
+    generated_text = OxmlElement('w:t')
+    generated_text.text = 'Generated reference that must not be exported'
+    generated_run.append(generated_text)
+    generated_paragraph.append(generated_run)
+    marker_content.append(generated_paragraph)
     marker.extend([marker_properties, marker_content])
     marker_parent.insert(marker_index, marker)
     document.add_heading('Content after references', level=1)
@@ -143,6 +150,7 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert '::: {#refs}' in text
     assert '# References {.unnumbered}' in text
     assert text.index('::: {#refs}') < text.index('# Content after references')
+    assert 'Generated reference that must not be exported' not in text
     assert 'csl:' in text
     assert 'bibword-apa.csl' in text
     assert (tmp_path / 'bibword-apa.csl').is_file()

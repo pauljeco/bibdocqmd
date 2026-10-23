@@ -45,6 +45,9 @@ test('formats and style-sorts bibliography entries', () => {
   assert.deepEqual(entries.map(({ id }) => id), ['geomorphons', 'smith2020']);
   assert.match(entries[0].text, /^Jasiewicz, J\., & Stepinski, T\. F\. \(2013\)\./);
   assert.match(entries[0].text, /Geomorphology, 182, 147–156/);
+  const html = library.formatBibliographyHtml(['geomorphons'], 'apa');
+  assert.match(html, /class="csl-bib-body"/);
+  assert.match(html, /<i>Geomorphology<\/i>/);
 });
 
 test('exposes supported author-date styles and parses common locator labels', () => {

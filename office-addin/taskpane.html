@@ -74,9 +74,12 @@
     </section>
     <section aria-labelledby="bibliography-heading">
       <h2 id="bibliography-heading">4. Place the bibliography</h2>
-      <p class="section-copy">Put the cursor where the formatted references must appear. BibWord stores a visible marker there; Quarto replaces it with the bibliography during export.</p>
-      <button id="insert-bibliography" type="button" disabled>Insert bibliography marker</button>
-      <small>Use one marker per document. Move it in Word whenever the bibliography position changes.</small>
+      <p class="section-copy">Put the cursor where the references must appear. BibWord stores the generated Word bibliography inside this marker; Quarto replaces the whole block during export.</p>
+      <div class="button-grid">
+        <button id="insert-bibliography" type="button" disabled>Insert marker</button>
+        <button id="format-bibliography" type="button" disabled>Update in Word</button>
+      </div>
+      <small id="bibliography-render-status">Use one marker per document. Load a bibliography to generate its formatted references in Word.</small>
     </section>
     <footer>
       Citations are stored as Word content controls with visible Pandoc citation syntax.
