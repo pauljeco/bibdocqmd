@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 from bibword.export import (
     CitationError, bibliography_style_from_tag, citation_ast, export_docx,
     embedded_csl_styles, extract_tagged_controls, materialize_csl_style,
-    validate_csl_style,
+    materialize_reference_docx, validate_csl_style,
 )
 
 DOCX = ROOT / 'examples' / 'bibword_demo.docx'
@@ -67,6 +67,9 @@ def test_docx_to_quarto_citations_and_structure(tmp_path):
     assert 'Word feature' in text
     assert 'First tested conversion' in text
     assert 'BIBWORDCIT' not in text
+    assert 'reference-doc: "bibword-reference-' in text
+    reference_docs = list(tmp_path.glob('bibword-reference-*.docx'))
+    assert len(reference_docs) == 1
 
     result = subprocess.run(['pandoc', '-f', 'markdown+citations', '-t', 'json', str(out)],
                             capture_output=True, text=True, check=True)
@@ -154,6 +157,32 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert 'csl:' in text
     assert 'bibword-apa.csl' in text
     assert (tmp_path / 'bibword-apa.csl').is_file()
+    assert 'reference-doc: "bibword-reference-' in text
+
+
+def test_generated_reference_docx_has_hanging_bibliography_style(tmp_path):
+    target = materialize_reference_docx(tmp_path)
+    assert target.name.startswith('bibword-reference-')
+    assert target.suffix == '.docx'
+
+    with zipfile.ZipFile(target) as archive:
+        styles = etree.fromstring(archive.read('word/styles.xml'))
+    namespace = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+    indentation = styles.xpath(
+        './/w:style[@w:styleId="Bibliography"]/w:pPr/w:ind', namespaces=namespace)
+    assert len(indentation) == 1
+    word = '{' + namespace['w'] + '}'
+    assert indentation[0].get(word + 'left') == '720'
+    assert indentation[0].get(word + 'hanging') == '720'
+    assert indentation[0].get(word + 'firstLine') is None
+    assert materialize_reference_docx(tmp_path) == target
+
+
+def test_generated_reference_docx_is_not_silently_overwritten(tmp_path):
+    target = materialize_reference_docx(tmp_path)
+    target.write_bytes(b'user-owned document')
+    with pytest.raises(CitationError, match='Refusing to overwrite'):
+        materialize_reference_docx(tmp_path)
 
 
 def test_formatted_and_copied_controls_export_from_canonical_alias(tmp_path):

@@ -40,7 +40,7 @@ make check
 
 `make setup` creates a local Python virtual environment and uses the committed npm lockfile. See [`docs/development.md`](docs/development.md) for independent setup commands and the Word sideloading checklist.
 
-The `.qmd` and `.bib` must be distributed together. When a document has a styled `v2` bibliography marker, the exporter also writes a verified `bibword-*.csl` file beside the `.qmd`; distribute that file with them. Custom styles are embedded in the source DOCX, so the original external `.csl` file is not required at export time. Pandoc/Quarto citations can be rendered to a finished bibliography using:
+The `.qmd`, `.bib`, and generated `bibword-reference-*.docx` must be distributed together. The reference DOCX is based on Pandoc's installed default and gives Quarto Word bibliographies a 0.5-inch hanging indent. When a document has a styled `v2` bibliography marker, the exporter also writes a verified `bibword-*.csl` file beside the `.qmd`; distribute that file with them. Custom styles are embedded in the source DOCX, so the original external `.csl` file is not required at export time. Pandoc/Quarto citations can be rendered to a finished bibliography using:
 
 ```bash
 cd examples
@@ -87,7 +87,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: give exported Quarto DOCX files an explicit reference-document style with hanging bibliography indents. Then validate citation copy/paste in **Word for the web** and the complete workflow in **Windows Word**.
+Next: validate citation copy/paste and saving while formatted citations are visible in **Word for the web**, then validate the complete workflow in **Windows Word**.
 
 ## Known limitations and test boundaries
 
@@ -104,7 +104,7 @@ Next: give exported Quarto DOCX files an explicit reference-document style with 
 - The generated Word bibliography lives inside the bibliography marker. The exporter intentionally discards those display paragraphs and regenerates the final bibliography from managed citation keys, preventing duplicate or stale references in Quarto output.
 - Formatted citations retain their canonical Quarto syntax in the content-control alias. Switching back to editable keys restores that source, and the exporter reads it directly when the formatted display is active. Direct edits to formatted display text do not change citation semantics; use **Load selected citation** or return to key view before editing.
 - The in-pane preview and exporter use the same bundled or embedded CSL source. Exported Quarto, HTML, and DOCX output remains the final formatting authority.
-- The bibliography generated directly in Word has CSL italics and hanging indents. Quarto's default DOCX reference style currently renders the same entries without hanging indents; a generated reference DOCX is the next export-formatting improvement.
+- The bibliography generated directly in Word and Quarto's exported DOCX both use hanging indents. The exporter emits a content-addressed reference DOCX based on the locally installed Pandoc version and links it from the QMD front matter.
 
 ## Licence and attribution
 

@@ -61,7 +61,7 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 9. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion, then choose **Update in Word**. Confirm that the marker now contains the heading and all formatted references.
 10. Save and reopen the document. Reload the `.bib` file, confirm that the saved style and generated bibliography remain, and toggle formatted citations back to editable keys. Then download the document as DOCX.
 11. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. Formatted controls must have a `w:alias` beginning `BibWord citation source v1:`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
-12. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, that formatted display text does not leak into the QMD, that generated Word references are not duplicated, and that rendered references occur before any text following the marker.
+12. Export it with the command below. Confirm that the `.qmd` contains the matching `csl` path, the generated `bibword-reference-*.docx` path, and a `#refs` Div at the marker position. Confirm that formatted display text does not leak into the QMD, generated Word references are not duplicated, rendered references occur before any text following the marker, and Quarto DOCX references use a 0.5-inch hanging indent.
 
 ```bash
 .venv/bin/bibword-export downloaded.docx \

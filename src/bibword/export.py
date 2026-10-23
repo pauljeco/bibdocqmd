@@ -166,6 +166,69 @@ def run_pandoc(*args: str, stdin: str | None = None) -> str:
     return completed.stdout
 
 
+def pandoc_default_reference_docx() -> bytes:
+    """Return the installed Pandoc version's standard Word reference document."""
+    command = ['pandoc', '--print-default-data-file', 'reference.docx']
+    try:
+        completed = subprocess.run(command, capture_output=True, check=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError('Pandoc 3.x is required: https://pandoc.org/installing.html') from exc
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.decode('utf-8', errors='replace')
+        raise RuntimeError(f"Pandoc failed: {' '.join(command)}\n{detail}") from exc
+    return completed.stdout
+
+
+def hanging_bibliography_reference_docx() -> bytes:
+    """Create a Pandoc reference DOCX with BibWord's bibliography indent."""
+    source = io.BytesIO(pandoc_default_reference_docx())
+    destination = io.BytesIO()
+    bibliography_found = False
+    with zipfile.ZipFile(source) as original, zipfile.ZipFile(destination, 'w') as updated:
+        for info in original.infolist():
+            content = original.read(info.filename)
+            if info.filename == 'word/styles.xml':
+                root = etree.fromstring(content)
+                matches = root.xpath(
+                    './/w:style[@w:styleId="Bibliography"]', namespaces=NS)
+                if len(matches) != 1:
+                    raise RuntimeError(
+                        'Pandoc reference.docx does not contain one Bibliography style.')
+                style = matches[0]
+                paragraph_properties = style.find(W + 'pPr')
+                if paragraph_properties is None:
+                    paragraph_properties = etree.Element(W + 'pPr')
+                    run_properties = style.find(W + 'rPr')
+                    if run_properties is None:
+                        style.append(paragraph_properties)
+                    else:
+                        style.insert(style.index(run_properties), paragraph_properties)
+                indentation = paragraph_properties.find(W + 'ind')
+                if indentation is None:
+                    indentation = etree.SubElement(paragraph_properties, W + 'ind')
+                indentation.set(W + 'left', '720')
+                indentation.set(W + 'hanging', '720')
+                indentation.attrib.pop(W + 'firstLine', None)
+                content = etree.tostring(
+                    root, encoding='UTF-8', xml_declaration=True, standalone=True)
+                bibliography_found = True
+            updated.writestr(info, content)
+    if not bibliography_found:
+        raise RuntimeError('Pandoc reference.docx has no word/styles.xml part.')
+    return destination.getvalue()
+
+
+def materialize_reference_docx(destination: Path) -> Path:
+    """Write a content-addressed Word reference template without overwriting."""
+    content = hanging_bibliography_reference_docx()
+    digest = hashlib.sha256(content).hexdigest()[:12]
+    target = destination / f'bibword-reference-{digest}.docx'
+    if target.exists() and target.read_bytes() != content:
+        raise CitationError(f'Refusing to overwrite a different reference DOCX: {target}')
+    target.write_bytes(content)
+    return target
+
+
 def citation_ast(citation_text: str) -> dict:
     """Use Pandoc's *actual* parser rather than implementing our own grammar."""
     document = json.loads(run_pandoc('-f', 'markdown+citations', '-t', 'json',
@@ -361,7 +424,13 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
         relative_csl = relpath(materialize_csl_style(style, qmd_path.parent, custom_styles),
                                qmd_path.parent).replace('\\', '/')
         frontmatter += f'csl: {json.dumps(relative_csl, ensure_ascii=False)}\n'
-    frontmatter += 'format:\n  html: default\n  docx: default\n---\n\n'
+    relative_reference = relpath(materialize_reference_docx(qmd_path.parent),
+                                 qmd_path.parent).replace('\\', '/')
+    frontmatter += ('format:\n'
+                    '  html: default\n'
+                    '  docx:\n'
+                    f'    reference-doc: {json.dumps(relative_reference)}\n'
+                    '---\n\n')
     qmd_path.write_text(frontmatter + rendered, encoding='utf-8')
     return len(citations)
 

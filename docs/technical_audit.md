@@ -40,7 +40,7 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 - Uses Pandoc's DOCX reader for headings, paragraphs, lists, tables.
 - Reads the original Word package directly, extracts tagged content controls, parses visible citation syntax with Pandoc (no custom grammar), and stores Pandoc `Cite` nodes.
 - A temporary copy replaces controls with neutral sentinels.
-- Inserts the native Cite nodes into Pandoc's document AST, then writes Quarto-compatible Markdown with YAML and `.bib` link.
+- Inserts the native Cite nodes into Pandoc's document AST, then writes Quarto-compatible Markdown with YAML, `.bib` link, and a generated Word reference document whose `Bibliography` style uses a 0.5-inch hanging indent.
 - Sample citations render successfully using Pandoc's `--citeproc` with sample references.
 
 ## Product risks / priorities
@@ -55,4 +55,4 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 ## Explicit next engineering task
 
-Add a generated reference DOCX so Quarto's DOCX bibliography receives the same hanging-indent treatment as the bibliography generated directly in Word. Then test copied controls in Word for the web, including save/reopen and export while formatted display is active, and validate the complete workflow in a current Windows Word desktop build.
+Test copied controls in Word for the web, including save/reopen and export while formatted display is active. Then validate the complete workflow in a current Windows Word desktop build.
