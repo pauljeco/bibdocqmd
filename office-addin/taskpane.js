@@ -95,13 +95,32 @@
     if (!body) throw new Error('Word document XML has no main document body.');
     const paragraphs = [];
 
+    function addMarker(summary) {
+      paragraphs.push({
+        headingLevel: 0,
+        citationKeys: [],
+        marker: { ...summary, metadata: parseBibliographyTag(summary.tag) },
+      });
+    }
+
     function addParagraph(paragraph) {
       const style = wordValue(firstDescendant(firstDescendant(paragraph, 'pPr'), 'pStyle'));
       const heading = /^Heading([1-9])$/i.exec(style.replace(/\s+/g, ''));
       const citationKeys = [];
       const controls = [...paragraph.getElementsByTagNameNS(wordNamespace, 'sdt')];
-      controls.forEach((control) => {
-        const summary = controlSummary(control);
+      const summaries = controls.map(controlSummary);
+      const markers = summaries.filter(({ tag }) => tag.startsWith('bibword:refs:'));
+      if (markers.length) {
+        if (markers.length > 1) {
+          throw new Error('A paragraph contains more than one bibliography marker.');
+        }
+        // Word may serialize a live paragraph control as w:p/w:sdt, while a
+        // downloaded DOCX may serialize the same control as w:sdt/w:p. Its
+        // References heading must not become a boundary for its own scope.
+        addMarker(markers[0]);
+        return;
+      }
+      summaries.forEach((summary) => {
         if (summary.tag.startsWith('bibword:cite:v1:')) {
           citationKeys.push(...parseCitationControl(summary).parsed.keys);
         }
@@ -129,11 +148,7 @@
               ? [...titleParagraph.getElementsByTagNameNS(wordNamespace, 't')]
                 .map((node) => node.textContent || '').join('')
               : '';
-            paragraphs.push({
-              headingLevel: 0,
-              citationKeys: [],
-              marker: { ...summary, metadata: parseBibliographyTag(summary.tag) },
-            });
+            addMarker(summary);
             return;
           }
           const content = firstDescendant(child, 'sdtContent');
@@ -765,11 +780,12 @@
           const metadata = parseBibliographyTag(marker.tag);
           const plan = plans.get(metadata.id);
           if (!plan) throw new Error(`Could not locate bibliography marker ${metadata.id} in the document body.`);
+          const title = marker.text.split(/[\r\n]+/)[0].trim() || plan.title;
           const bibliography = cslLibrary.formatBibliographyHtml(plan.keys, styleId);
           marker.tag = bibliographyTag(metadata.id, styleId, metadata.scope);
           marker.title = 'BibWord bibliography position and generated references';
           marker.insertHtml(wordBibliographyHtml(
-            plan.title, bibliography, bibliographyHeadingLevel(metadata.scope),
+            title, bibliography, bibliographyHeadingLevel(metadata.scope),
           ), Word.InsertLocation.replace);
           referenceCount += plan.keys.length;
         });
