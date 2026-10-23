@@ -7,12 +7,12 @@
 - Microsoft `office-addin-manifest` 3.0.1 confirmed that the XML follows the current add-in schema. Its broader acceptance check initially rejected the prototype's `0.1.0.0` manifest version and missing support URL; both were corrected. The manifest now declares the WordApi 1.1 requirement used by range insertion and rich-text content controls.
 - Pure citation construction and basic key scanning were separated from the Office host so they can be exercised by Node's built-in test runner.
 - The local HTTPS server now reads credentials directly from `office-addin-dev-certs`; developers no longer copy private keys into the source tree.
-- A first real Word-for-the-web test on Ubuntu/Firefox succeeded on 23 October 2026: the pane loaded, four citations were inserted, and their inline content-control tags survived DOCX download. Save/reopen, collaboration, and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
+- Real Word-for-the-web tests on Ubuntu/Firefox succeeded on 23 October 2026: eight citation controls and a bibliography marker survived save/reopen and DOCX download; bundled and custom CSL styles persisted; and a generated nine-entry bibliography retained italics and hanging indents. Copy/paste, collaboration, and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
 - The current `office-addin-dev-certs` 3.0.1 dependency brings a high-severity `node-forge` advisory through `mkcert`, with no npm-published fix reported on this date. It is a development-only certificate tool and is not shipped in the task pane, but it should be replaced or upgraded once a fixed upstream version is available.
 
 ## User-facing requirement
 
-Word desktop (Windows) and Word for the web (Ubuntu/Linux browser) should display **Quarto/Pandoc syntax**, rather than formatted author–year strings, by default. `@key`, `[@key]`, grouped citations, `[-@key]`, and locators should export to `.qmd` with actual Pandoc `Cite` nodes. BibTeX/BibLaTeX libraries remain the source of bibliographic records. CSL formatted text is a future *preview*, not the stored citation representation.
+Word desktop (Windows) and Word for the web (Ubuntu/Linux browser) should display **Quarto/Pandoc syntax** by default. `@key`, `[@key]`, grouped citations, `[-@key]`, and locators should export to `.qmd` with actual Pandoc `Cite` nodes. BibTeX/BibLaTeX libraries remain the source of bibliographic records. CSL formatting is available for previews and the generated bibliography; a future citation-display toggle must preserve the stored citation syntax and content-control identity.
 
 ## Upstream project assessment: JabRef-Word-Addin
 
@@ -54,4 +54,4 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 ## Explicit next engineering task
 
-Test `office-addin/` on both Word for the web and Word desktop. Insert a citation from the task pane, save as DOCX, inspect `word/document.xml` and run `bibword_export.py`. If the DOCX is inline and metadata survives, proceed to replace the key scanner with a proper JS BibLaTeX parser, support multiple .bib files, search across fields, and integrate/reuse the suitable JabRef UI components.
+Add a safe document-wide toggle between visible citation keys and formatted citations. The control tag and canonical Quarto syntax must remain authoritative so a display refresh, style change, save/reopen cycle, or export cannot lose citation identity. Then test copy/paste and the complete workflow in a current Windows Word desktop build.
