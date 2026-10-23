@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CSL_STYLES, createLibrary, parseLocator } from './csl-engine.mjs';
+import { readFile } from 'node:fs/promises';
+import {
+  CSL_STYLES, createLibrary, customStyleIdentity, parseLocator, registerCslStyle,
+  validateCslStyle,
+} from './csl-engine.mjs';
 
 const BIBLIOGRAPHY = String.raw`
 @article{smith2020,
@@ -54,4 +58,30 @@ test('fails explicitly for unresolved keys and unsupported styles', () => {
   const library = createLibrary(BIBLIOGRAPHY);
   assert.throws(() => library.formatCitation(['missing'], 'parenthetical'), /Keys missing/);
   assert.throws(() => library.formatBibliography(['smith2020'], 'unknown'), /Unsupported/);
+});
+
+test('registers an independent custom CSL style under a stable content identity', async () => {
+  const xml = await readFile(new URL('../src/bibword/styles/apa.csl', import.meta.url), 'utf8');
+  const first = await customStyleIdentity(xml);
+  const second = await customStyleIdentity(xml);
+  assert.match(first.id, /^custom-[0-9a-f]{12}$/);
+  assert.equal(first.hash.length, 64);
+  assert.deepEqual(first, second);
+  assert.equal(registerCslStyle(first.id, xml), first.id);
+
+  const library = createLibrary(BIBLIOGRAPHY);
+  assert.equal(library.formatCitation(['smith2020'], 'parenthetical', 'p. 5', first.id),
+    '(Smith et al., 2020, p. 5)');
+});
+
+test('rejects malformed and dependent CSL styles before registration', () => {
+  assert.throws(() => validateCslStyle('<style/>'), /not an independent CSL style/);
+  const dependent = `
+    <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0">
+      <info><title>Dependent</title><link rel="independent-parent" href="parent"/></info>
+      <citation><layout><text variable="title"/></layout></citation>
+      <bibliography><layout><text variable="title"/></layout></bibliography>
+    </style>`;
+  assert.throws(() => validateCslStyle(dependent), /Dependent CSL styles/);
+  assert.throws(() => registerCslStyle('custom-bad', dependent), /Invalid custom/);
 });

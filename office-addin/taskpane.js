@@ -6,8 +6,13 @@
     bibliographyTag, citationKeysFromControls, citationSyntax, parseBibliographyTag,
     parseCitationSyntax, replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
-  const { createLibrary, CSL_STYLES } = globalThis.BibWordCsl;
+  const {
+    createLibrary, CSL_STYLES, customStyleIdentity, registerCslStyle, validateCslStyle,
+  } = globalThis.BibWordCsl;
   const styleIds = new Set(CSL_STYLES.map(({ id }) => id));
+  const customStyleNamespace = 'urn:bibword:csl-style:v1';
+  const customStyleIdPattern = /^custom-[0-9a-f]{12}$/;
+  const customStyles = new Map();
   let knownKeys = null;
   let cslLibrary = null;
   let officeReady = false;
@@ -36,6 +41,67 @@
 
   function selectedStyle() {
     return $('citation-style').value;
+  }
+
+  function bytesToBase64(value) {
+    const bytes = new TextEncoder().encode(value);
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  function base64ToText(value) {
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  function customStyleStoreXml(style) {
+    return `<bibwordStyle xmlns="${customStyleNamespace}" id="${style.id}" hash="${style.hash}">`
+      + `<label encoding="base64">${bytesToBase64(style.label)}</label>`
+      + `<csl encoding="base64">${bytesToBase64(style.xml)}</csl>`
+      + '</bibwordStyle>';
+  }
+
+  function parseCustomStyleStore(xml) {
+    const parsed = new DOMParser().parseFromString(xml, 'application/xml');
+    if (parsed.querySelector('parsererror')) throw new Error('The embedded BibWord CSL part is invalid XML.');
+    const root = parsed.documentElement;
+    if (root.localName !== 'bibwordStyle' || root.namespaceURI !== customStyleNamespace) return null;
+    const id = root.getAttribute('id') || '';
+    const hash = root.getAttribute('hash') || '';
+    const labelNode = root.getElementsByTagNameNS(customStyleNamespace, 'label')[0];
+    const cslNode = root.getElementsByTagNameNS(customStyleNamespace, 'csl')[0];
+    if (!customStyleIdPattern.test(id) || !/^[0-9a-f]{64}$/.test(hash) || !labelNode || !cslNode) {
+      throw new Error('The embedded BibWord CSL part has invalid metadata.');
+    }
+    return {
+      id, hash,
+      label: base64ToText(labelNode.textContent || ''),
+      xml: base64ToText(cslNode.textContent || ''),
+    };
+  }
+
+  function assertWellFormedCsl(xml) {
+    const parsed = new DOMParser().parseFromString(xml, 'application/xml');
+    if (parsed.querySelector('parsererror')) throw new Error('The selected CSL style is not well-formed XML.');
+    if (parsed.documentElement.localName !== 'style'
+        || parsed.documentElement.namespaceURI !== 'http://purl.org/net/xbiblio/csl') {
+      throw new Error('The selected file is not a CSL style document.');
+    }
+  }
+
+  function addCustomStyleOption(style) {
+    let option = [...$('citation-style').options].find(({ value }) => value === style.id);
+    if (!option) {
+      option = document.createElement('option');
+      option.value = style.id;
+      $('citation-style').appendChild(option);
+    }
+    option.textContent = `Custom: ${style.label}`;
+    styleIds.add(style.id);
   }
 
   function uniqueId() {
@@ -185,6 +251,90 @@
     }
   }
 
+  function supportsCustomStylePersistence() {
+    return typeof Office !== 'undefined'
+      && Office.context.requirements.isSetSupported('WordApi', '1.4');
+  }
+
+  async function readCustomStylesFromDocument(context) {
+    if (!supportsCustomStylePersistence()) {
+      throw new Error('Embedding custom CSL styles requires WordApi 1.4 or newer.');
+    }
+    const collection = context.document.customXmlParts.getByNamespace(customStyleNamespace);
+    collection.load('items/id');
+    await context.sync();
+    const blobs = collection.items.map((part) => part.getXml());
+    await context.sync();
+    const styles = [];
+    for (const blob of blobs) {
+      const style = parseCustomStyleStore(blob.value);
+      if (!style) continue;
+      assertWellFormedCsl(style.xml);
+      const identity = await customStyleIdentity(style.xml);
+      if (identity.id !== style.id || identity.hash !== style.hash) {
+        throw new Error(`Embedded CSL style ${style.id} failed its integrity check.`);
+      }
+      styles.push(style);
+    }
+    return styles;
+  }
+
+  async function ensureCustomStylePart(context, style) {
+    const storedStyles = await readCustomStylesFromDocument(context);
+    const existing = storedStyles.find(({ id }) => id === style.id);
+    if (existing) {
+      if (existing.hash !== style.hash || existing.xml !== style.xml) {
+        throw new Error(`The document already contains different CSL data for ${style.id}.`);
+      }
+      return;
+    }
+    context.document.customXmlParts.add(customStyleStoreXml(style));
+    await context.sync();
+  }
+
+  async function loadCustomStyleFromDocument(id) {
+    let style = null;
+    await Word.run(async (context) => {
+      const matches = (await readCustomStylesFromDocument(context)).filter((item) => item.id === id);
+      if (!matches.length) throw new Error(`The embedded CSL style ${id} is missing.`);
+      if (matches.length > 1 && matches.some((item) => item.xml !== matches[0].xml)) {
+        throw new Error(`The document contains conflicting copies of CSL style ${id}.`);
+      }
+      [style] = matches;
+    });
+    registerCslStyle(style.id, style.xml);
+    customStyles.set(style.id, style);
+    addCustomStyleOption(style);
+    return style;
+  }
+
+  async function loadCslFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const xml = await file.text();
+      validateCslStyle(xml);
+      assertWellFormedCsl(xml);
+      const identity = await customStyleIdentity(xml);
+      const style = { ...identity, xml, label: file.name };
+      registerCslStyle(style.id, style.xml);
+      customStyles.set(style.id, style);
+      addCustomStyleOption(style);
+      $('citation-style').value = style.id;
+      $('style-status').textContent = `${file.name} loaded as ${style.id}.`;
+      updatePreview();
+      renderDocumentBibliography();
+      if (officeReady && await persistSelectedStyle()) {
+        setStatus('Custom CSL style embedded and saved with the bibliography marker.');
+      } else {
+        setStatus('Custom CSL style loaded locally. Insert a bibliography marker to embed it in the document.');
+      }
+    } catch (error) {
+      $('style-status').textContent = error.message || String(error);
+      setStatus('Could not load the CSL style: ' + (error.message || String(error)), true);
+    }
+  }
+
   async function refreshDocumentBibliography() {
     if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
     if (!cslLibrary) return setStatus('Load a bibliography before refreshing the document preview.', true);
@@ -216,7 +366,13 @@
       if (!markers.length) return;
       const metadata = parseBibliographyTag(markers[0].tag);
       if (!metadata) return;
-      markers[0].tag = bibliographyTag(metadata.id, selectedStyle());
+      const styleId = selectedStyle();
+      if (customStyleIdPattern.test(styleId)) {
+        const style = customStyles.get(styleId);
+        if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
+        await ensureCustomStylePart(context, style);
+      }
+      markers[0].tag = bibliographyTag(metadata.id, styleId);
       await context.sync();
       saved = true;
     });
@@ -237,6 +393,10 @@
       if (!markerTag) return;
       const metadata = parseBibliographyTag(markerTag);
       if (metadata?.style) {
+        if (customStyleIdPattern.test(metadata.style) && !styleIds.has(metadata.style)) {
+          const style = await loadCustomStyleFromDocument(metadata.style);
+          $('style-status').textContent = `${style.label} restored from this Word document.`;
+        }
         if (!styleIds.has(metadata.style)) {
           throw new Error(`The document uses an unsupported citation style: ${metadata.style}`);
         }
@@ -343,6 +503,12 @@
     if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
     try {
       await Word.run(async (context) => {
+        const styleId = selectedStyle();
+        if (customStyleIdPattern.test(styleId)) {
+          const style = customStyles.get(styleId);
+          if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
+          await ensureCustomStylePart(context, style);
+        }
         const controls = context.document.contentControls;
         controls.load('items/tag');
         await context.sync();
@@ -353,7 +519,7 @@
         const paragraph = selection.insertParagraph('References', Word.InsertLocation.after);
         paragraph.styleBuiltIn = 'Heading1';
         const control = paragraph.insertContentControl();
-        control.tag = bibliographyTag(uniqueId(), selectedStyle());
+        control.tag = bibliographyTag(uniqueId(), styleId);
         control.title = 'BibWord bibliography position';
         await context.sync();
       });
@@ -364,6 +530,7 @@
   }
 
   $('bib-file').addEventListener('change', loadBibFile);
+  $('csl-file').addEventListener('change', loadCslFile);
   $('citation-keys').addEventListener('input', () => {
     updatePreview();
     renderSuggestions();

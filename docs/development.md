@@ -55,10 +55,10 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 3. Use **Add-ins** > **More Add-ins** > **My Add-ins** > **Upload My Add-in** and select `office-addin/manifest.xml`. The exact labels can vary by tenant.
 4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, confirm the APA CSL preview, and insert a citation.
 5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
-6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented.
+6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
 7. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion.
 8. Save and reopen the document. Confirm that the saved style is restored, then download the document as DOCX.
-9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`.
+9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. For a custom style, also confirm that the DOCX contains a `customXml/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
 10. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, and that rendered references occur before any text following the marker.
 
 ```bash
@@ -68,6 +68,8 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 ```
 
 Tenant policy can disable **Upload My Add-in**. That is an external deployment-policy blocker, not something the add-in can bypass.
+
+Custom CSL persistence uses `Word.CustomXmlPart`, which requires WordApi 1.4. The pane rejects malformed styles, dependent styles that need a separately fetched parent, styles without both citation and bibliography layouts, and files larger than 2 MB. The imported file remains local and is embedded as base64 in a namespaced document part. Its short marker identifier and full stored SHA-256 digest are verified by the exporter.
 
 ## What automated checks do and do not prove
 

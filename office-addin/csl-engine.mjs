@@ -1,4 +1,4 @@
-import { Cite } from '@citation-js/core';
+import { Cite, plugins } from '@citation-js/core';
 import '@citation-js/plugin-bibtex';
 import '@citation-js/plugin-csl';
 
@@ -8,6 +8,50 @@ export const CSL_STYLES = Object.freeze([
 ]);
 
 const STYLE_IDS = new Set(CSL_STYLES.map(({ id }) => id));
+const CUSTOM_STYLE_ID = /^custom-[0-9a-f]{12}$/;
+const CSL_NAMESPACE = 'http://purl.org/net/xbiblio/csl';
+
+export function validateCslStyle(xml) {
+  if (typeof xml !== 'string' || !xml.trim()) throw new Error('The selected CSL style is empty.');
+  if (new TextEncoder().encode(xml).length > 2_000_000) {
+    throw new Error('The selected CSL style is larger than the 2 MB prototype limit.');
+  }
+  if (/<!DOCTYPE\b|<!ENTITY\b/i.test(xml)) {
+    throw new Error('CSL styles containing document type or entity declarations are not supported.');
+  }
+  const root = /<style\b[^>]*\bxmlns=["']http:\/\/purl\.org\/net\/xbiblio\/csl["'][^>]*>/i;
+  if (!root.test(xml)) throw new Error(`The file is not an independent CSL style in ${CSL_NAMESPACE}.`);
+  if (!/<info\b/i.test(xml) || !/<title\b/i.test(xml)) {
+    throw new Error('The CSL style has no title metadata.');
+  }
+  if (/\brel=["']independent-parent["']/i.test(xml)) {
+    throw new Error('Dependent CSL styles are not supported; choose the independent parent style.');
+  }
+  if (!/<citation\b/i.test(xml) || !/<bibliography\b/i.test(xml)) {
+    throw new Error('The CSL style must define both citation and bibliography layouts.');
+  }
+  return xml;
+}
+
+export async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function customStyleIdentity(xml) {
+  validateCslStyle(xml);
+  const hash = await sha256Hex(xml);
+  return { id: `custom-${hash.slice(0, 12)}`, hash };
+}
+
+export function registerCslStyle(id, xml) {
+  if (!CUSTOM_STYLE_ID.test(id)) throw new Error(`Invalid custom CSL style identifier: ${id}`);
+  validateCslStyle(xml);
+  plugins.config.get('@csl').styles.add(id, xml);
+  STYLE_IDS.add(id);
+  return id;
+}
 
 function assertStyle(style) {
   if (!STYLE_IDS.has(style)) throw new Error(`Unsupported citation style: ${style}`);

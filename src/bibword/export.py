@@ -10,7 +10,9 @@ restores real Cite nodes, then writes Markdown. No author-year text matching.
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -26,10 +28,13 @@ CITATION_TAG_PREFIX = 'bibword:cite:v1:'
 BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:'
 BIBLIOGRAPHY_TAG_V1_PREFIX = 'bibword:refs:v1:'
 BIBLIOGRAPHY_TAG_V2_PREFIX = 'bibword:refs:v2:'
+CUSTOM_CSL_NAMESPACE = 'urn:bibword:csl-style:v1'
+CSL_NAMESPACE = 'http://purl.org/net/xbiblio/csl'
 SUPPORTED_STYLES = {
     'apa': 'apa.csl',
     'harvard1': 'harvard1.csl',
 }
+CUSTOM_STYLE_PATTERN = re.compile(r'^custom-[0-9a-f]{12}$')
 TOKEN_PATTERN = re.compile(r'BIBWORDCIT\d{6}TOKEN')
 BIB_KEY_PATTERN = re.compile(r'^\s*@\w+\s*[({]\s*([^,\s]+)\s*,', re.M)
 
@@ -50,7 +55,7 @@ def bibliography_style_from_tag(tag: str) -> str | None:
     marker_id, separator, style = metadata.rpartition(':')
     if not separator or not marker_id or not style:
         raise CitationError('Bibliography v2 marker must contain an identity and CSL style.')
-    if style not in SUPPORTED_STYLES:
+    if style not in SUPPORTED_STYLES and not CUSTOM_STYLE_PATTERN.fullmatch(style):
         raise CitationError(f'Unsupported bibliography style: {style}')
     return style
 
@@ -65,11 +70,80 @@ def csl_style_path(style: str) -> Path:
     return path
 
 
-def materialize_csl_style(style: str, destination: Path) -> Path:
-    """Copy the selected bundled style beside the QMD without silent overwrite."""
-    source = csl_style_path(style)
-    target = destination / f'bibword-{source.name}'
-    content = source.read_bytes()
+def validate_csl_style(content: bytes) -> None:
+    """Reject malformed and dependent styles that cannot render independently."""
+    if len(content) > 2_000_000:
+        raise CitationError('Embedded CSL style exceeds the 2 MB prototype limit.')
+    if re.search(br'<!DOCTYPE\b|<!ENTITY\b', content, re.I):
+        raise CitationError('CSL styles containing document type or entity declarations are unsupported.')
+    try:
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
+        root = etree.fromstring(content, parser=parser)
+    except etree.XMLSyntaxError as exc:
+        raise CitationError(f'Embedded CSL style is invalid XML: {exc}') from exc
+    qname = etree.QName(root)
+    if qname.localname != 'style' or qname.namespace != CSL_NAMESPACE:
+        raise CitationError('Embedded custom style is not a CSL style document.')
+    if root.find(f'{{{CSL_NAMESPACE}}}info/{{{CSL_NAMESPACE}}}title') is None:
+        raise CitationError('Embedded CSL style has no title metadata.')
+    if root.find(f'{{{CSL_NAMESPACE}}}citation') is None \
+            or root.find(f'{{{CSL_NAMESPACE}}}bibliography') is None:
+        raise CitationError('Embedded CSL style must define citation and bibliography layouts.')
+    dependent = root.xpath('.//csl:link[@rel="independent-parent"]',
+                           namespaces={'csl': CSL_NAMESPACE})
+    if dependent:
+        raise CitationError('Dependent CSL styles are not supported; use the independent parent style.')
+
+
+def embedded_csl_styles(docx: Path) -> dict[str, bytes]:
+    """Read and integrity-check BibWord custom CSL parts stored in a DOCX."""
+    styles: dict[str, bytes] = {}
+    parser = etree.XMLParser(resolve_entities=False, no_network=True)
+    with zipfile.ZipFile(docx) as archive:
+        names = [name for name in archive.namelist()
+                 if name.startswith('customXml/') and name.endswith('.xml')]
+        for name in names:
+            try:
+                root = etree.fromstring(archive.read(name), parser=parser)
+            except etree.XMLSyntaxError:
+                continue
+            qname = etree.QName(root)
+            if qname.namespace != CUSTOM_CSL_NAMESPACE or qname.localname != 'bibwordStyle':
+                continue
+            style_id = root.get('id', '')
+            expected_hash = root.get('hash', '')
+            if not CUSTOM_STYLE_PATTERN.fullmatch(style_id) or not re.fullmatch(r'[0-9a-f]{64}', expected_hash):
+                raise CitationError(f'Embedded BibWord CSL part has invalid metadata: {name}')
+            csl = root.find(f'{{{CUSTOM_CSL_NAMESPACE}}}csl')
+            if csl is None or csl.get('encoding') != 'base64' or not csl.text:
+                raise CitationError(f'Embedded BibWord CSL part has no encoded style: {name}')
+            try:
+                content = base64.b64decode(''.join(csl.text.split()), validate=True)
+            except (ValueError, TypeError) as exc:
+                raise CitationError(f'Embedded BibWord CSL part has invalid base64 data: {name}') from exc
+            actual_hash = hashlib.sha256(content).hexdigest()
+            if actual_hash != expected_hash or style_id != f'custom-{actual_hash[:12]}':
+                raise CitationError(f'Embedded CSL style {style_id} failed its integrity check.')
+            validate_csl_style(content)
+            if style_id in styles and styles[style_id] != content:
+                raise CitationError(f'Conflicting embedded CSL styles use identifier {style_id}.')
+            styles[style_id] = content
+    return styles
+
+
+def materialize_csl_style(style: str, destination: Path,
+                          custom_styles: dict[str, bytes] | None = None) -> Path:
+    """Write the selected bundled or embedded style without silent overwrite."""
+    if style in SUPPORTED_STYLES:
+        source = csl_style_path(style)
+        content = source.read_bytes()
+    elif CUSTOM_STYLE_PATTERN.fullmatch(style):
+        content = (custom_styles or {}).get(style)
+        if content is None:
+            raise CitationError(f'Embedded custom CSL style is missing: {style}')
+    else:
+        raise CitationError(f'Unsupported bibliography style: {style}')
+    target = destination / f'bibword-{style}.csl'
     if target.exists() and target.read_bytes() != content:
         raise CitationError(f'Refusing to overwrite a different CSL file: {target}')
     target.write_bytes(content)
@@ -269,7 +343,8 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
               if value.get('t') == 'BibWordBibliography' and value.get('style')}
     if styles:
         style = styles.pop()
-        relative_csl = relpath(materialize_csl_style(style, qmd_path.parent),
+        custom_styles = embedded_csl_styles(docx_path) if CUSTOM_STYLE_PATTERN.fullmatch(style) else None
+        relative_csl = relpath(materialize_csl_style(style, qmd_path.parent, custom_styles),
                                qmd_path.parent).replace('\\', '/')
         frontmatter += f'csl: {json.dumps(relative_csl, ensure_ascii=False)}\n'
     frontmatter += 'format:\n  html: default\n  docx: default\n---\n\n'

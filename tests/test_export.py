@@ -3,16 +3,21 @@
 Execute from repository root: python -m pytest -q
 """
 from pathlib import Path
+import base64
+import hashlib
 import json
 import subprocess
 import sys
+import zipfile
 import pytest
+from lxml import etree
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from bibword.export import (
     CitationError, bibliography_style_from_tag, citation_ast, export_docx,
-    extract_tagged_controls, materialize_csl_style,
+    embedded_csl_styles, extract_tagged_controls, materialize_csl_style,
+    validate_csl_style,
 )
 
 DOCX = ROOT / 'examples' / 'bibword_demo.docx'
@@ -147,12 +152,76 @@ def test_bibliography_marker_style_metadata_is_versioned_and_validated():
     assert bibliography_style_from_tag('bibword:refs:v1:legacy') is None
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:apa') == 'apa'
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:harvard1') == 'harvard1'
+    assert bibliography_style_from_tag('bibword:refs:v2:marker-id:custom-0123456789ab') \
+        == 'custom-0123456789ab'
     with pytest.raises(CitationError, match='Unsupported bibliography style'):
         bibliography_style_from_tag('bibword:refs:v2:marker-id:unknown')
     with pytest.raises(CitationError, match='identity and CSL style'):
         bibliography_style_from_tag('bibword:refs:v2:broken')
     with pytest.raises(CitationError, match='Unsupported bibliography marker'):
         bibliography_style_from_tag('bibword:refs:v3:future')
+
+
+def custom_style_docx(source: Path, destination: Path, style: bytes,
+                      stored_hash: str | None = None) -> str:
+    namespace = 'urn:bibword:csl-style:v1'
+    word_namespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    word = f'{{{word_namespace}}}'
+    digest = hashlib.sha256(style).hexdigest()
+    style_id = f'custom-{digest[:12]}'
+
+    store = etree.Element(f'{{{namespace}}}bibwordStyle', nsmap={None: namespace},
+                          id=style_id, hash=stored_hash or digest)
+    label = etree.SubElement(store, f'{{{namespace}}}label', encoding='base64')
+    label.text = base64.b64encode(b'custom-test.csl').decode('ascii')
+    data = etree.SubElement(store, f'{{{namespace}}}csl', encoding='base64')
+    data.text = base64.b64encode(style).decode('ascii')
+
+    with zipfile.ZipFile(source) as archive:
+        document = etree.fromstring(archive.read('word/document.xml'))
+        body = document.find(f'{word}body')
+        marker = etree.Element(f'{word}sdt')
+        properties = etree.SubElement(marker, f'{word}sdtPr')
+        tag = etree.SubElement(properties, f'{word}tag')
+        tag.set(f'{word}val', f'bibword:refs:v2:custom-marker:{style_id}')
+        content = etree.SubElement(marker, f'{word}sdtContent')
+        paragraph = etree.SubElement(content, f'{word}p')
+        run = etree.SubElement(paragraph, f'{word}r')
+        text = etree.SubElement(run, f'{word}t')
+        text.text = 'References'
+        section = body.find(f'{word}sectPr')
+        body.insert(body.index(section) if section is not None else len(body), marker)
+        changed = etree.tostring(document, encoding='UTF-8', xml_declaration=True,
+                                 standalone=True)
+        with zipfile.ZipFile(destination, 'w') as output:
+            for info in archive.infolist():
+                output.writestr(info, changed if info.filename == 'word/document.xml'
+                                else archive.read(info.filename))
+            output.writestr('customXml/itemBibWord.xml', etree.tostring(store,
+                              encoding='UTF-8', xml_declaration=True, standalone=True))
+    return style_id
+
+
+def test_embedded_custom_csl_style_round_trips_to_export(tmp_path):
+    style = (ROOT / 'src/bibword/styles/apa.csl').read_bytes()
+    source = tmp_path / 'custom-style.docx'
+    style_id = custom_style_docx(DOCX, source, style)
+
+    assert embedded_csl_styles(source) == {style_id: style}
+    validate_csl_style(style)
+    output = tmp_path / 'custom-style.qmd'
+    assert export_docx(source, output, BIB) == 5
+    text = output.read_text(encoding='utf-8')
+    assert f'csl: "bibword-{style_id}.csl"' in text
+    assert (tmp_path / f'bibword-{style_id}.csl').read_bytes() == style
+
+
+def test_embedded_custom_csl_style_integrity_failure_is_explicit(tmp_path):
+    style = (ROOT / 'src/bibword/styles/apa.csl').read_bytes()
+    source = tmp_path / 'tampered-style.docx'
+    custom_style_docx(DOCX, source, style, stored_hash='0' * 64)
+    with pytest.raises(CitationError, match='integrity check'):
+        embedded_csl_styles(source)
 
 
 def test_bundled_style_copy_does_not_overwrite_different_content(tmp_path):

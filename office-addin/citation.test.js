@@ -121,6 +121,9 @@ test('versions bibliography tags and preserves legacy marker identities', () => 
   assert.deepEqual(parseBibliographyTag('bibword:refs:v2:marker-123:harvard1'), {
     version: 2, id: 'marker-123', style: 'harvard1',
   });
+  assert.deepEqual(parseBibliographyTag('bibword:refs:v2:marker-123:custom-0123456789ab'), {
+    version: 2, id: 'marker-123', style: 'custom-0123456789ab',
+  });
   assert.deepEqual(parseBibliographyTag('bibword:refs:v1:legacy-marker'), {
     version: 1, id: 'legacy-marker', style: null,
   });

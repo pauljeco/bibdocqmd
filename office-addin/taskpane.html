@@ -45,6 +45,9 @@
         <option value="apa">APA 7th edition</option>
         <option value="harvard1">Harvard author-date</option>
       </select>
+      <label for="csl-file">Import a custom CSL style (optional)</label>
+      <input id="csl-file" type="file" accept=".csl,application/xml,text/xml" />
+      <small id="style-status">Independent CSL styles are formatted locally and embedded in the Word document when a bibliography marker exists.</small>
       <div class="preview-label">Word display / Quarto syntax</div>
       <output id="citation-preview">[@key]</output>
       <div class="preview-label">Formatted citation preview</div>
@@ -53,7 +56,7 @@
       <ul id="reference-preview" class="reference-preview">
         <li>Load a bibliography and choose a citation key.</li>
       </ul>
-      <small>Formatted locally with Citation.js and citeproc-js. Once a bibliography marker exists, its style is stored with the document and applied during export.</small>
+      <small>Formatted locally with Citation.js and citeproc-js. Once a bibliography marker exists, its bundled or embedded custom style is stored with the document and applied during export.</small>
       <div class="button-grid">
         <button id="insert" type="button" disabled>Insert new</button>
         <button id="update-selected" type="button" disabled>Update selected</button>
