@@ -3,7 +3,8 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const {
-    bibliographyTag, citationKeysFromControls, citationSyntax, parseBibliographyTag,
+    bibliographyTag, CITATION_TITLE, citationKeysFromControls, citationSourceFromTitle,
+    citationSourceTitle, citationSyntax, citationSyntaxFromControl, parseBibliographyTag,
     parseCitationSyntax, replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
   const {
@@ -17,7 +18,7 @@
   let cslLibrary = null;
   let officeReady = false;
   let activeSuggestion = -1;
-  let selectedControlTag = null;
+  let selectedControlId = null;
   let documentCitationKeys = [];
 
   function enteredKeys() {
@@ -59,6 +60,20 @@
 
   function markWordBibliographyStale(message = 'The Word bibliography may be out of date. Choose Update in Word.') {
     $('bibliography-render-status').textContent = message;
+  }
+
+  function markFormattedCitationsStale(message = 'Formatted citations may be out of date. Choose Show formatted citations to refresh them.') {
+    $('citation-display-status').textContent = message;
+  }
+
+  function applyKeyFormatting(range) {
+    range.font.reset();
+    range.font.name = 'Consolas';
+    range.font.color = '#165789';
+  }
+
+  function applyFormattedCitationFormatting(range) {
+    range.font.reset();
   }
 
   function bytesToBase64(value) {
@@ -258,8 +273,10 @@
       $('library-status').textContent = `${file.name}: ${cslLibrary.size} entries parsed as BibLaTeX/CSL.`;
       $('refresh-bibliography').disabled = !officeReady;
       $('format-bibliography').disabled = !officeReady;
+      $('show-formatted-citations').disabled = !officeReady;
       setStatus('Bibliography parsed locally with Citation.js; no file data uploaded.');
       markWordBibliographyStale();
+      markFormattedCitationsStale();
       renderSuggestions();
       updatePreview();
       if (documentCitationKeys.length) renderDocumentBibliography();
@@ -268,6 +285,7 @@
       knownKeys = null;
       $('refresh-bibliography').disabled = true;
       $('format-bibliography').disabled = true;
+      $('show-formatted-citations').disabled = true;
       setStatus(error.message, true);
     }
   }
@@ -346,6 +364,7 @@
       updatePreview();
       renderDocumentBibliography();
       markWordBibliographyStale();
+      markFormattedCitationsStale();
       if (officeReady && await persistSelectedStyle()) {
         setStatus('Custom CSL style embedded and saved with the bibliography marker.');
       } else {
@@ -364,9 +383,9 @@
       let controls;
       await Word.run(async (context) => {
         const collection = context.document.contentControls;
-        collection.load('items/tag,text');
+        collection.load('items/tag,text,title');
         await context.sync();
-        controls = collection.items.map(({ tag, text }) => ({ tag, text }));
+        controls = collection.items.map(({ tag, text, title }) => ({ tag, text, title }));
       });
       documentCitationKeys = citationKeysFromControls(controls);
       renderDocumentBibliography();
@@ -445,13 +464,13 @@
         const inserted = selection.insertText(syntax, Word.InsertLocation.replace);
         const control = inserted.insertContentControl();
         control.tag = 'bibword:cite:v1:' + uniqueId();
-        control.title = 'BibWord citation';
-        inserted.font.name = 'Consolas';
-        inserted.font.color = '#165789';
+        control.title = CITATION_TITLE;
+        applyKeyFormatting(inserted);
         await context.sync();
       });
       setStatus('Citation inserted with editable Quarto syntax.');
       markWordBibliographyStale();
+      markFormattedCitationsStale('A new key-view citation was inserted. Choose Show formatted citations to refresh the reading view.');
     } catch (error) {
       setStatus('Word insertion failed: ' + (error.message || String(error)), true);
     }
@@ -463,24 +482,25 @@
       let selected;
       await Word.run(async (context) => {
         const control = context.document.getSelection().parentContentControl;
-        control.load('tag,text');
+        control.load('id,tag,text,title');
         await context.sync();
-        selected = { tag: control.tag, text: control.text };
+        selected = { id: control.id, tag: control.tag, text: control.text, title: control.title };
       });
       if (!selected.tag.startsWith('bibword:cite:v1:')) {
         throw new Error('The selected content control is not a BibWord citation.');
       }
-      const parsed = parseCitationSyntax(selected.text);
+      const source = citationSyntaxFromControl(selected);
+      const parsed = parseCitationSyntax(source);
       $('citation-keys').value = parsed.keys.join('; ');
       $('mode').value = parsed.mode;
       $('locator').value = parsed.locator;
-      selectedControlTag = selected.tag;
+      selectedControlId = selected.id;
       $('update-selected').disabled = false;
-      $('editing-status').textContent = `Editing ${selected.text}`;
+      $('editing-status').textContent = `Editing ${source}`;
       updatePreview();
       setStatus('Selected citation loaded. Change its fields, then choose Update selected.');
     } catch (error) {
-      selectedControlTag = null;
+      selectedControlId = null;
       $('update-selected').disabled = true;
       $('editing-status').textContent = 'To edit, place the cursor inside a BibWord citation and load it.';
       setStatus('Could not load a BibWord citation. Place the cursor inside its blue citation text and try again.', true);
@@ -497,7 +517,7 @@
   }
 
   async function updateSelectedCitation() {
-    if (!selectedControlTag) return setStatus('Load a selected BibWord citation first.', true);
+    if (selectedControlId === null) return setStatus('Load a selected BibWord citation first.', true);
     let syntax;
     try {
       syntax = validatedSyntax();
@@ -506,13 +526,23 @@
     }
     try {
       await Word.run(async (context) => {
-        const matches = context.document.contentControls.getByTag(selectedControlTag);
-        matches.load('items');
+        const control = context.document.contentControls.getById(selectedControlId);
+        control.load('tag,title');
         await context.sync();
-        if (!matches.items.length) throw new Error('The selected citation no longer exists.');
-        const updated = matches.items[0].insertText(syntax, Word.InsertLocation.replace);
-        updated.font.name = 'Consolas';
-        updated.font.color = '#165789';
+        if (!control.tag.startsWith('bibword:cite:v1:')) {
+          throw new Error('The selected citation no longer exists.');
+        }
+        const formatted = citationSourceFromTitle(control.title) !== null;
+        if (formatted && !cslLibrary) {
+          throw new Error('Reload the bibliography before updating a formatted citation.');
+        }
+        const display = formatted
+          ? cslLibrary.formatCitation(enteredKeys(), $('mode').value, $('locator').value, selectedStyle())
+          : syntax;
+        const updated = control.insertText(display, Word.InsertLocation.replace);
+        control.title = formatted ? citationSourceTitle(syntax) : CITATION_TITLE;
+        if (formatted) applyFormattedCitationFormatting(updated);
+        else applyKeyFormatting(updated);
         await context.sync();
       });
       $('editing-status').textContent = `Editing ${syntax}`;
@@ -520,6 +550,52 @@
       markWordBibliographyStale();
     } catch (error) {
       setStatus('Word update failed: ' + (error.message || String(error)), true);
+    }
+  }
+
+  async function setCitationDisplay(mode) {
+    if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
+    if (mode === 'formatted' && !cslLibrary) {
+      return setStatus('Load the bibliography before showing formatted citations.', true);
+    }
+    try {
+      let changed = 0;
+      await Word.run(async (context) => {
+        const collection = context.document.contentControls;
+        collection.load('items/tag,text,title');
+        await context.sync();
+        const controls = collection.items.filter(({ tag }) => tag.startsWith('bibword:cite:v1:'));
+        if (!controls.length) throw new Error('The document has no managed citations.');
+        const replacements = controls.map((control) => {
+          const source = citationSyntaxFromControl(control);
+          const parsed = parseCitationSyntax(source);
+          const text = mode === 'formatted'
+            ? cslLibrary.formatCitation(parsed.keys, parsed.mode, parsed.locator, selectedStyle())
+            : source;
+          return { control, source, text };
+        });
+        replacements.forEach(({ control, source, text }) => {
+          const updated = control.insertText(text, Word.InsertLocation.replace);
+          if (mode === 'formatted') {
+            control.title = citationSourceTitle(source);
+            applyFormattedCitationFormatting(updated);
+          } else {
+            control.title = CITATION_TITLE;
+            applyKeyFormatting(updated);
+          }
+        });
+        await context.sync();
+        documentCitationKeys = citationKeysFromControls(replacements.map(({ control, source }) => ({
+          tag: control.tag, text: source, title: CITATION_TITLE,
+        })));
+        changed = replacements.length;
+      });
+      const label = mode === 'formatted' ? 'formatted citations' : 'editable citation keys';
+      $('citation-display-status').textContent = `${changed} managed citations now show ${label}.`;
+      setStatus(`Document now shows ${label}; canonical Quarto syntax remains exportable.`);
+    } catch (error) {
+      $('citation-display-status').textContent = error.message || String(error);
+      setStatus('Could not change citation display: ' + (error.message || String(error)), true);
     }
   }
 
@@ -561,7 +637,7 @@
       let referenceCount = 0;
       await Word.run(async (context) => {
         const controls = context.document.contentControls;
-        controls.load('items/tag,text');
+        controls.load('items/tag,text,title');
         await context.sync();
         const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
         if (markers.length !== 1) {
@@ -570,7 +646,7 @@
             : 'Insert a bibliography marker before updating the Word bibliography.');
         }
         const keys = citationKeysFromControls(
-          controls.items.map(({ tag, text }) => ({ tag, text })),
+          controls.items.map(({ tag, text, title }) => ({ tag, text, title })),
         );
         if (!keys.length) throw new Error('The document has no managed citations to format.');
         const marker = markers[0];
@@ -614,6 +690,7 @@
     updatePreview();
     renderDocumentBibliography();
     markWordBibliographyStale();
+    markFormattedCitationsStale();
     if (!officeReady) return;
     try {
       if (await persistSelectedStyle()) {
@@ -626,6 +703,8 @@
   $('insert').addEventListener('click', insertIntoWord);
   $('load-selected').addEventListener('click', loadSelectedCitation);
   $('update-selected').addEventListener('click', updateSelectedCitation);
+  $('show-formatted-citations').addEventListener('click', () => setCitationDisplay('formatted'));
+  $('show-citation-keys').addEventListener('click', () => setCitationDisplay('keys'));
   $('insert-bibliography').addEventListener('click', insertBibliographyMarker);
   $('format-bibliography').addEventListener('click', formatBibliographyInWord);
   $('refresh-bibliography').addEventListener('click', refreshDocumentBibliography);
@@ -647,6 +726,8 @@
       $('insert').disabled = false;
       $('load-selected').disabled = false;
       $('insert-bibliography').disabled = false;
+      $('show-citation-keys').disabled = false;
+      $('show-formatted-citations').disabled = !cslLibrary;
       $('refresh-bibliography').disabled = !cslLibrary;
       $('format-bibliography').disabled = !cslLibrary;
       setStatus('Ready to insert citations.');

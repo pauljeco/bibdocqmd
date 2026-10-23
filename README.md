@@ -1,8 +1,8 @@
 # BibWord | Quarto-native Word citations (technical spike v0.1)
 
-A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves the visible Quarto/Pandoc markup (`@key`, `[@key]`) directly in Word.
+A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves Quarto/Pandoc markup (`@key`, `[@key]`) directly in each Word citation control while allowing an optional formatted reading view.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, and in-document bibliography generation all worked in the real host. Downloaded documents retained Harvard metadata, an embedded custom APA style, and the generated nine-entry bibliography with its italics and hanging indents. The exporter discarded that display copy and produced one matching reference section at the explicit marker. Copy/paste, formatted citation display, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, and in-document bibliography generation all worked in the real host. Downloaded documents retained Harvard metadata, an embedded custom APA style, and the generated nine-entry bibliography with its italics and hanging indents. A document-wide toggle between editable keys and formatted citations is implemented and covered by automated round-trip tests, but still awaits a real-host test. Copy/paste, collaboration, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -60,12 +60,13 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 4. Open a document in Word for the web. If your tenant allows developer sideloading, upload `office-addin/manifest.xml` through the Word Add-ins UI; see [Microsoft's sideloading guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/sideload-office-add-ins-for-testing).
 5. In the task pane, load `examples/references.bib`, enter `smith2020`, choose a bundled style or import an independent `.csl` file, inspect the CSL-formatted preview, and insert `[@smith2020]` or `@smith2020`.
 6. To edit, put the Word cursor inside the blue citation, choose **Load selected citation**, change its fields, then choose **Update selected**.
-7. Choose **Refresh document preview** to format all unique managed references in the pane.
-8. Put the cursor where the references must appear and choose **Insert marker**. Use one marker per document. Changing the citation style after inserting the marker updates its stored export style.
-9. Choose **Update in Word** to write the CSL-formatted bibliography inside the marker. Repeat this after citation, library, or style changes.
-10. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
+7. Choose **Show formatted citations** for a reading view or **Show editable keys** to restore the canonical Quarto syntax. Reload the `.bib` file before formatting after reopening Word.
+8. Choose **Refresh document preview** to format all unique managed references in the pane.
+9. Put the cursor where the references must appear and choose **Insert marker**. Use one marker per document. Changing the citation style after inserting the marker updates its stored export style.
+10. Choose **Update in Word** to write the CSL-formatted bibliography inside the marker. Repeat this after citation, library, or style changes.
+11. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores visible keys plus a visible, versioned bibliography-position marker containing the selected style identifier.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, save/reopen persistence, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Copy/paste, formatted citation display, coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
 ## Architecture and next steps
 
@@ -86,7 +87,7 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: add a safe document-wide toggle between visible citation keys and formatted citations while preserving the editable citation syntax inside each control. After that, test copy/paste and validate the workflow in **Windows Word**.
+Next: validate the citation-display toggle and copy/paste behavior in **Word for the web**. Then give exported Quarto DOCX files an explicit reference-document style with hanging bibliography indents and validate the complete workflow in **Windows Word**.
 
 ## Known limitations and test boundaries
 
@@ -101,7 +102,9 @@ Next: add a safe document-wide toggle between visible citation keys and formatte
 - New bibliography markers use `bibword:refs:v2:<identity>:<style>`. Legacy `v1` markers remain exportable but have no stored style and therefore use Pandoc's default.
 - Imported independent CSL styles use a `custom-<hash>` style identifier and a namespaced custom XML part inside the DOCX. The exporter verifies the full SHA-256 hash before using the embedded data. This path requires WordApi 1.4; bundled styles continue to work on the prototype's WordApi 1.1 baseline.
 - The generated Word bibliography lives inside the bibliography marker. The exporter intentionally discards those display paragraphs and regenerates the final bibliography from managed citation keys, preventing duplicate or stale references in Quarto output.
+- Formatted citations retain their canonical Quarto syntax in the content-control alias. Switching back to editable keys restores that source, and the exporter reads it directly when the formatted display is active. Direct edits to formatted display text do not change citation semantics; use **Load selected citation** or return to key view before editing.
 - The in-pane preview and exporter use the same bundled or embedded CSL source. Exported Quarto, HTML, and DOCX output remains the final formatting authority.
+- The bibliography generated directly in Word has CSL italics and hanging indents. Quarto's default DOCX reference style currently renders the same entries without hanging indents; a generated reference DOCX is the next export-formatting improvement.
 
 ## Licence and attribution
 

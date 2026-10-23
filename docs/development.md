@@ -55,11 +55,13 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 3. Use **Add-ins** > **More Add-ins** > **My Add-ins** > **Upload My Add-in** and select `office-addin/manifest.xml`. The exact labels can vary by tenant.
 4. Open the BibWord task pane, select `examples/references.bib`, enter `smith2020`, confirm the APA CSL preview, and insert a citation.
 5. Put the cursor inside the inserted citation, load it into the task pane, change its key or locator, and update it.
-6. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
-7. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion, then choose **Update in Word**. Confirm that the marker now contains the heading and all formatted references.
-8. Save and reopen the document. Confirm that both the saved style and generated bibliography remain, then download the document as DOCX.
-9. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
-10. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, that the generated Word references are not duplicated in the QMD, and that rendered references occur before any text following the marker.
+6. Choose **Show formatted citations**, then **Show editable keys**. Confirm that all citations change together and the exact original Quarto syntax returns. Format them again, select one formatted citation, load it, update it, and confirm only that occurrence changes.
+7. Copy and paste one formatted citation. Load the pasted occurrence, update its locator or key, and confirm the original occurrence is unchanged. Copy a key-view citation and repeat the same check.
+8. Refresh the document bibliography preview, change between APA and Harvard, and confirm that all unique managed keys are represented. Optionally import an independent `.csl` file and verify its previews.
+9. Put the cursor on a separate line where the references should appear and insert the bibliography marker. Change the style once more after insertion, then choose **Update in Word**. Confirm that the marker now contains the heading and all formatted references.
+10. Save and reopen the document. Reload the `.bib` file, confirm that the saved style and generated bibliography remain, and toggle formatted citations back to editable keys. Then download the document as DOCX.
+11. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. Formatted controls must have a `w:alias` beginning `BibWord citation source v1:`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
+12. Export it with the command below. Confirm that the `.qmd` contains both the matching `csl` path and a `#refs` Div at the marker position, that formatted display text does not leak into the QMD, that generated Word references are not duplicated, and that rendered references occur before any text following the marker.
 
 ```bash
 .venv/bin/bibword-export downloaded.docx \

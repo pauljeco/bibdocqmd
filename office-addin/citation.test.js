@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   activeKeyFragment, bibliographyTag, citationKeysFromControls, citationSyntax,
+  citationSourceFromTitle, citationSourceTitle, citationSyntaxFromControl,
   formatCitationPreview, formatReference, parseBibEntries, parseBibliographyTag,
   parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
@@ -110,10 +111,24 @@ test('collects unique citation keys from managed Word controls in document order
     { tag: 'ordinary', text: '[@ignored]' },
     { tag: 'bibword:cite:v1:first', text: '[@smith2020; @jones2022]' },
     { tag: 'bibword:refs:v1:marker', text: 'References' },
-    { tag: 'bibword:cite:v1:second', text: '@smith2020' },
+    {
+      tag: 'bibword:cite:v1:second', text: 'Smith (2020)',
+      title: citationSourceTitle('@smith2020'),
+    },
     { tag: 'bibword:cite:v1:third', text: '[-@brown2024, p. 7]' },
   ]);
   assert.deepEqual(keys, ['smith2020', 'jones2022', 'brown2024']);
+});
+
+test('retains canonical citation syntax while controls show formatted text', () => {
+  const title = citationSourceTitle('[@smith2020; @jones2022, p. 4]');
+  assert.equal(citationSourceFromTitle(title), '[@smith2020; @jones2022, p. 4]');
+  assert.equal(citationSyntaxFromControl({ text: '(Smith, 2020; Jones, 2022, p. 4)', title }),
+    '[@smith2020; @jones2022, p. 4]');
+  assert.equal(citationSyntaxFromControl({ text: ' @smith2020 ', title: 'BibWord citation' }),
+    '@smith2020');
+  assert.throws(() => citationSourceFromTitle('BibWord citation source v1: not a citation'),
+    /supported BibWord/);
 });
 
 test('versions bibliography tags and preserves legacy marker identities', () => {

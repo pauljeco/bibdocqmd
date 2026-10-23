@@ -6,6 +6,9 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   'use strict';
 
+  const CITATION_TITLE = 'BibWord citation';
+  const CITATION_SOURCE_TITLE_PREFIX = 'BibWord citation source v1: ';
+
   function parseKeys(bibtex) {
     return new Set(parseBibEntries(bibtex).keys());
   }
@@ -227,9 +230,9 @@
   function citationKeysFromControls(controls) {
     const keys = [];
     const seen = new Set();
-    controls.forEach(({ tag = '', text = '' }) => {
-      if (!tag.startsWith('bibword:cite:v1:')) return;
-      parseCitationSyntax(text).keys.forEach((key) => {
+    controls.forEach((control = {}) => {
+      if (!(control.tag || '').startsWith('bibword:cite:v1:')) return;
+      parseCitationSyntax(citationSyntaxFromControl(control)).keys.forEach((key) => {
         if (!seen.has(key)) {
           seen.add(key);
           keys.push(key);
@@ -237,6 +240,24 @@
       });
     });
     return keys;
+  }
+
+  function citationSourceTitle(syntax) {
+    const source = String(syntax || '').trim();
+    parseCitationSyntax(source);
+    return CITATION_SOURCE_TITLE_PREFIX + source;
+  }
+
+  function citationSourceFromTitle(title) {
+    const value = String(title || '');
+    if (!value.startsWith(CITATION_SOURCE_TITLE_PREFIX)) return null;
+    const source = value.slice(CITATION_SOURCE_TITLE_PREFIX.length).trim();
+    parseCitationSyntax(source);
+    return source;
+  }
+
+  function citationSyntaxFromControl({ text = '', title = '' } = {}) {
+    return citationSourceFromTitle(title) || String(text).trim();
   }
 
   function bibliographyTag(id, style) {
@@ -337,8 +358,13 @@
   return {
     activeKeyFragment,
     bibliographyTag,
+    CITATION_SOURCE_TITLE_PREFIX,
+    CITATION_TITLE,
     citationKeysFromControls,
+    citationSourceFromTitle,
+    citationSourceTitle,
     citationSyntax,
+    citationSyntaxFromControl,
     formatCitationPreview,
     formatReference,
     parseBibEntries,

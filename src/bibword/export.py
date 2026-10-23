@@ -1,7 +1,8 @@
 """DOCX -> Quarto/Pandoc Markdown converter for tagged, visible citations.
 
-Prototype scope: body-level inline w:sdt content controls, tagged
-bibword:cite:v1:..., containing *visible* Pandoc/Quarto citation syntax.
+Prototype scope: body-level inline w:sdt content controls tagged
+``bibword:cite:v1:...``. Key view stores visible Pandoc/Quarto syntax;
+formatted view stores the same canonical syntax in the control alias.
 
 Pandoc handles non-citation DOCX structure. The converter substitutes unique
 sentinels for citation controls in a temporary DOCX, reads the Pandoc AST,
@@ -25,6 +26,7 @@ from lxml import etree
 NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 W = '{' + NS['w'] + '}'
 CITATION_TAG_PREFIX = 'bibword:cite:v1:'
+CITATION_SOURCE_ALIAS_PREFIX = 'BibWord citation source v1: '
 BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:'
 BIBLIOGRAPHY_TAG_V1_PREFIX = 'bibword:refs:v1:'
 BIBLIOGRAPHY_TAG_V2_PREFIX = 'bibword:refs:v2:'
@@ -198,7 +200,13 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
             if content.xpath('.//w:p', namespaces=NS):
                 raise CitationError(f'Citation control must be inline: {value}')
             texts = content.xpath('.//w:t/text()', namespaces=NS)
-            ast = citation_ast(''.join(texts).strip())
+            visible_text = ''.join(texts).strip()
+            alias = control.find(f'{W}sdtPr/{W}alias')
+            alias_value = alias.get(W + 'val', '') if alias is not None else ''
+            citation_text = (alias_value.removeprefix(CITATION_SOURCE_ALIAS_PREFIX).strip()
+                             if alias_value.startswith(CITATION_SOURCE_ALIAS_PREFIX)
+                             else visible_text)
+            ast = citation_ast(citation_text)
         else:
             if bibliography_found:
                 raise CitationError('Only one BibWord bibliography marker is allowed.')

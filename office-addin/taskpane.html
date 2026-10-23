@@ -12,7 +12,7 @@
     <header>
       <div class="eyebrow">BIBWORD / PROTOTYPE v0.1</div>
       <h1>Quarto citations in Word</h1>
-      <p>Keep your <code>@citationKeys</code> visible, just as they appear in Quarto.</p>
+      <p>Edit <code>@citationKeys</code> directly, then switch to formatted citations when you want a reading view.</p>
     </header>
     <section aria-labelledby="library-heading">
       <h2 id="library-heading">1. Select a BibTeX library</h2>
@@ -63,8 +63,17 @@
       </div>
       <p id="status" role="status" aria-live="polite"></p>
     </section>
+    <section aria-labelledby="citation-display-heading">
+      <h2 id="citation-display-heading">3. Choose the document citation display</h2>
+      <p class="section-copy">Switch every managed citation between editable Quarto keys and CSL-formatted text. BibWord stores the canonical syntax with a formatted control so export and later editing keep the citation identity.</p>
+      <div class="button-grid">
+        <button id="show-citation-keys" class="secondary" type="button" disabled>Show editable keys</button>
+        <button id="show-formatted-citations" type="button" disabled>Show formatted citations</button>
+      </div>
+      <small id="citation-display-status">Load a bibliography to show formatted citations. Editable keys remain available whenever Word is ready.</small>
+    </section>
     <section aria-labelledby="document-preview-heading">
-      <h2 id="document-preview-heading">3. Preview the document bibliography</h2>
+      <h2 id="document-preview-heading">4. Preview the document bibliography</h2>
       <p class="section-copy">Read all managed citations in this document and format their references in the selected CSL style.</p>
       <button id="refresh-bibliography" class="secondary" type="button" disabled>Refresh document preview</button>
       <small id="document-preview-status">Load a bibliography, then refresh the document preview.</small>
@@ -73,7 +82,7 @@
       </ol>
     </section>
     <section aria-labelledby="bibliography-heading">
-      <h2 id="bibliography-heading">4. Place the bibliography</h2>
+      <h2 id="bibliography-heading">5. Place the bibliography</h2>
       <p class="section-copy">Put the cursor where the references must appear. BibWord stores the generated Word bibliography inside this marker; Quarto replaces the whole block during export.</p>
       <div class="button-grid">
         <button id="insert-bibliography" type="button" disabled>Insert marker</button>
@@ -82,7 +91,7 @@
       <small id="bibliography-render-status">Use one marker per document. Load a bibliography to generate its formatted references in Word.</small>
     </section>
     <footer>
-      Citations are stored as Word content controls with visible Pandoc citation syntax.
+      Citations are stored as Word content controls with recoverable Pandoc citation syntax.
       Export uses the companion <code>bibword_export.py</code> converter.
     </footer>
   </main>

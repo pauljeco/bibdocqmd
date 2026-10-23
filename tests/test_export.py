@@ -156,6 +156,49 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert (tmp_path / 'bibword-apa.csl').is_file()
 
 
+def test_formatted_and_copied_controls_export_from_canonical_alias(tmp_path):
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    document = Document()
+    for visible, syntax in [
+        ('(Smith, 2020)', '[@smith2020]'),
+        ('Jones (2022)', '@jones2022'),
+    ]:
+        paragraph = document.add_paragraph('Statement ')
+        citation = OxmlElement('w:sdt')
+        properties = OxmlElement('w:sdtPr')
+        alias = OxmlElement('w:alias')
+        alias.set(qn('w:val'), f'BibWord citation source v1: {syntax}')
+        tag = OxmlElement('w:tag')
+        # Copy/paste may duplicate the BibWord tag. Export is based on each
+        # physical control and must not collapse or reject either citation.
+        tag.set(qn('w:val'), 'bibword:cite:v1:copied-tag')
+        properties.extend([alias, tag])
+        content = OxmlElement('w:sdtContent')
+        run = OxmlElement('w:r')
+        text = OxmlElement('w:t')
+        text.text = visible
+        run.append(text)
+        content.append(run)
+        citation.extend([properties, content])
+        paragraph._p.append(citation)
+
+    source = tmp_path / 'formatted-copy.docx'
+    output = tmp_path / 'formatted-copy.qmd'
+    document.save(source)
+
+    xml, mapping = extract_tagged_controls(source)
+    assert len(mapping) == 2
+    assert b'(Smith, 2020)' not in xml
+    assert export_docx(source, output, BIB) == 2
+    rendered = output.read_text(encoding='utf-8')
+    assert '[@smith2020]' in rendered
+    assert '@jones2022' in rendered
+    assert '(Smith, 2020)' not in rendered
+
+
 def test_bibliography_marker_style_metadata_is_versioned_and_validated():
     assert bibliography_style_from_tag('bibword:refs:v1:legacy') is None
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:apa') == 'apa'

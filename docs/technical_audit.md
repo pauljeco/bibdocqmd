@@ -12,7 +12,7 @@
 
 ## User-facing requirement
 
-Word desktop (Windows) and Word for the web (Ubuntu/Linux browser) should display **Quarto/Pandoc syntax** by default. `@key`, `[@key]`, grouped citations, `[-@key]`, and locators should export to `.qmd` with actual Pandoc `Cite` nodes. BibTeX/BibLaTeX libraries remain the source of bibliographic records. CSL formatting is available for previews and the generated bibliography; a future citation-display toggle must preserve the stored citation syntax and content-control identity.
+Word desktop (Windows) and Word for the web (Ubuntu/Linux browser) display **Quarto/Pandoc syntax** by default. `@key`, `[@key]`, grouped citations, `[-@key]`, and locators export to `.qmd` with actual Pandoc `Cite` nodes. BibTeX/BibLaTeX libraries remain the source of bibliographic records. CSL formatting is available for previews, the generated bibliography, and an optional document-wide citation reading view. In reading view, the canonical syntax is stored in the content-control alias and remains the export authority.
 
 ## Upstream project assessment: JabRef-Word-Addin
 
@@ -54,4 +54,4 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 ## Explicit next engineering task
 
-Add a safe document-wide toggle between visible citation keys and formatted citations. The control tag and canonical Quarto syntax must remain authoritative so a display refresh, style change, save/reopen cycle, or export cannot lose citation identity. Then test copy/paste and the complete workflow in a current Windows Word desktop build.
+Test the citation-display toggle and copied controls in Word for the web, including save/reopen and DOCX export while formatted display is active. Then add a generated reference DOCX so Quarto's DOCX bibliography receives the same hanging-indent treatment as the bibliography generated directly in Word, and validate the complete workflow in a current Windows Word desktop build.
