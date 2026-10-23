@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="TaskPaneApp">
+  <Id>2dded7c2-e17a-4533-b191-2c4aafbb9d24</Id>
+  <Version>1.0.0.1</Version>
+  <ProviderName>BibWord</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="BibWord hosted pilot"/>
+  <Description DefaultValue="Insert Quarto syntax citations from BibTeX into Word."/>
+  <IconUrl DefaultValue="https://pauljeco.github.io/BibWord/icon-32.png"/>
+  <SupportUrl DefaultValue="https://pauljeco.github.io/BibWord/support.html"/>
+  <Hosts>
+    <Host Name="Document"/>
+  </Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="WordApi" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://pauljeco.github.io/BibWord/taskpane.html"/>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

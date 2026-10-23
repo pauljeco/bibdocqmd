@@ -1,0 +1,72 @@
+name: Deploy hosted BibWord pilot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pages.yml'
+      - 'office-addin/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: office-addin/package-lock.json
+
+      - name: Install locked dependencies
+        working-directory: office-addin
+        run: npm ci
+
+      - name: Build browser bibliography engine
+        working-directory: office-addin
+        run: npm run build
+
+      - name: Assemble static pilot
+        run: |
+          mkdir -p _site/dist
+          cp office-addin/pilot.html _site/index.html
+          cp office-addin/taskpane.html _site/taskpane.html
+          cp office-addin/support.html _site/support.html
+          cp office-addin/style.css _site/style.css
+          cp office-addin/taskpane.js _site/taskpane.js
+          cp office-addin/citation.js _site/citation.js
+          cp office-addin/icon-32.png _site/icon-32.png
+          cp office-addin/dist/csl-engine.js _site/dist/csl-engine.js
+          cp office-addin/manifest.pages.xml _site/manifest.xml
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static pilot
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy GitHub Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
