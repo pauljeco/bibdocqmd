@@ -197,7 +197,8 @@
 
     const paragraphs = [];
     const consumedMarkerControlIds = new Set();
-    details.forEach(({ paragraph, controls, parent }) => {
+    const markerLastParagraphIndexes = new Map();
+    details.forEach(({ paragraph, controls, parent }, detailIndex) => {
       const candidates = [...controls.items];
       if (!parent.isNullObject && !candidates.some(({ id }) => id === parent.id)) {
         candidates.push(parent);
@@ -209,6 +210,8 @@
           throw new Error('A paragraph contains more than one bibliography marker.');
         }
         const marker = markers[0];
+        const metadata = parseBibliographyTag(marker.tag);
+        markerLastParagraphIndexes.set(metadata.id, detailIndex);
         if (!consumedMarkerControlIds.has(marker.id)) {
           consumedMarkerControlIds.add(marker.id);
           paragraphs.push({
@@ -218,7 +221,7 @@
               tag: marker.tag,
               text: marker.text,
               title: marker.title,
-              metadata: parseBibliographyTag(marker.tag),
+              metadata,
             },
           });
         }
@@ -241,7 +244,12 @@
         marker: null,
       });
     });
-    return bibliographyPlansFromParagraphs(paragraphs);
+    return {
+      plans: bibliographyPlansFromParagraphs(paragraphs),
+      markerHasFollowingParagraph: new Map(
+        [...markerLastParagraphIndexes].map(([id, index]) => [id, index < details.length - 1]),
+      ),
+    };
   }
 
   function bibliographyHeadingLevel(scope) {
@@ -657,6 +665,11 @@
         control.tag = 'bibword:cite:v1:' + uniqueId();
         control.title = CITATION_TITLE;
         applyKeyFormatting(inserted);
+        if (Office.context.requirements.isSetSupported('WordApi', '1.3')) {
+          control.getRange(Word.RangeLocation.after).select();
+        } else {
+          inserted.select(Word.SelectionMode.end);
+        }
         await context.sync();
       });
       setStatus('Citation inserted with editable Quarto syntax.');
@@ -735,6 +748,11 @@
         // Replacing text in formatted view already restores inherited run
         // formatting in Word for the web; do not call the unavailable Font.reset.
         if (!formatted) applyKeyFormatting(updated);
+        if (Office.context.requirements.isSetSupported('WordApi', '1.3')) {
+          control.getRange(Word.RangeLocation.after).select();
+        } else {
+          updated.select(Word.SelectionMode.end);
+        }
         await context.sync();
       });
       $('editing-status').textContent = `Editing ${syntax}`;
@@ -806,9 +824,12 @@
         const control = paragraph.insertContentControl();
         control.tag = bibliographyTag(uniqueId(), styleId, scope);
         control.title = 'BibWord bibliography position';
+        const exitParagraph = control.insertParagraph('', Word.InsertLocation.after);
+        exitParagraph.styleBuiltIn = 'Normal';
+        exitParagraph.select(Word.SelectionMode.start);
         await context.sync();
       });
-      setStatus('Bibliography marker inserted with its heading scope and selected CSL style.');
+      setStatus('Bibliography marker inserted. The cursor is in a normal paragraph below it.');
       markWordBibliographyStale('Bibliography marker inserted. Choose Update in Word to generate references.');
     } catch (error) {
       setStatus('Bibliography marker failed: ' + (error.message || String(error)), true);
@@ -821,12 +842,15 @@
     try {
       let referenceCount = 0;
       let bibliographyCount = 0;
+      let addedExitParagraph = false;
       await Word.run(async (context) => {
         const controls = context.document.contentControls;
         controls.load('items/tag,text,title');
         let plans;
+        let paragraphState = null;
         if (Office.context.requirements.isSetSupported('WordApi', '1.3')) {
-          plans = await bibliographyPlansFromWordParagraphs(context);
+          paragraphState = await bibliographyPlansFromWordParagraphs(context);
+          plans = paragraphState.plans;
         } else {
           const bodyOoxml = context.document.body.getOoxml();
           await context.sync();
@@ -861,6 +885,12 @@
           marker.insertHtml(wordBibliographyHtml(
             title, bibliography, bibliographyHeadingLevel(metadata.scope),
           ), Word.InsertLocation.replace);
+          if (paragraphState && !paragraphState.markerHasFollowingParagraph.get(metadata.id)) {
+            const exitParagraph = marker.insertParagraph('', Word.InsertLocation.after);
+            exitParagraph.styleBuiltIn = 'Normal';
+            exitParagraph.select(Word.SelectionMode.start);
+            addedExitParagraph = true;
+          }
           referenceCount += plan.keys.length;
         });
         await context.sync();
@@ -872,7 +902,9 @@
       renderDocumentBibliography();
       const styleLabel = $('citation-style').selectedOptions[0].textContent;
       $('bibliography-render-status').textContent = `${bibliographyCount} bibliograph${bibliographyCount === 1 ? 'y' : 'ies'} updated with ${referenceCount} scoped reference entries in ${styleLabel}.`;
-      setStatus('Word bibliographies updated. Export will rebuild each scope from the citation keys.');
+      setStatus(addedExitParagraph
+        ? 'Word bibliographies updated. A normal paragraph was added after the final bibliography for continued typing.'
+        : 'Word bibliographies updated. Export will rebuild each scope from the citation keys.');
     } catch (error) {
       $('bibliography-render-status').textContent = error.message || String(error);
       setStatus('Could not update the Word bibliography: ' + (error.message || String(error)), true);
