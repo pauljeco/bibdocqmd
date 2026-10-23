@@ -2,7 +2,7 @@
 
 A **working first development step** toward a BibTeX-native citation manager for Microsoft Word on Windows and **Word for the web**. The design preserves Quarto/Pandoc markup (`@key`, `[@key]`) directly in each Word citation control while allowing an optional formatted reading view.
 
-> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, in-document bibliography generation, the document-wide formatted/editable citation toggle, formatted-view saving, and formatted citation copy/paste all worked in the real host. Downloaded documents retained canonical aliases, Harvard metadata, an embedded custom APA style, and generated bibliographies with italics and hanging indents. Key-view copy/paste, coauthoring, and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
+> **Status:** DOCX → Quarto conversion and the task pane's citation-building logic are tested locally. Microsoft's validator accepts the manifest schema and configuration. On 23 October 2026, the pane loaded in Word for the web on Ubuntu/Firefox; citation editing, save/reopen persistence, grouped citations, the bibliography marker, Citation.js/citeproc-js previews, bundled-style switching, custom CSL import, in-document bibliography generation, the document-wide formatted/editable citation toggle, formatted-view saving, and citation copy/paste in both display modes all worked in the real host. Downloaded documents retained canonical aliases, Harvard metadata, an embedded custom APA style, and generated bibliographies with italics and hanging indents. Coauthoring and Word desktop remain unverified. This is not yet a finished add-in or a fork of JabRef.
 
 ## Deliverables
 
@@ -66,7 +66,7 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 10. Choose **Update in Word** to write the CSL-formatted bibliography inside the marker. Repeat this after citation, library, or style changes.
 11. Save, reopen, and download the document as `.docx`; inspect the retained content-control tags and run `bibword_export.py` against the downloaded file.
 
-**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, formatted/editable citation display, save/reopen persistence, formatted-view copy/paste, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Key-view copy/paste, coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
+**Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, formatted/editable citation display, save/reopen persistence, citation copy/paste in both display modes, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
 ## Architecture and next steps
 
@@ -87,12 +87,13 @@ BibTeX file → Office.js task pane → tagged Quarto citations in Word
                                             Pandoc/CSL output
 ```
 
-Next: run the complete workflow in **Windows Word**. A narrow Word-for-the-web follow-up should also copy one key-view citation and explicitly close and reopen the document before export.
+Next: keep the Word cursor outside a newly inserted citation control automatically, then run the complete workflow in **Windows Word**.
 
 ## Known limitations and test boundaries
 
 - Citation controls must be **inline controls in the DOCX main document body**. The one supported block control is the bibliography-position marker; headers, footnotes, text boxes, cross-references, and tracked-change contexts remain unsupported.
-- Formatted-view copy/paste has been verified in the recorded Word-for-the-web Ubuntu/Firefox path. Key-view copy/paste and concurrent editing remain unverified.
+- Citation copy/paste in formatted and key views has been verified in the recorded Word-for-the-web Ubuntu/Firefox path. Concurrent editing remains unverified.
+- A sentence mark typed before the caret leaves the blue control becomes part of the managed citation and makes that control invalid. Batch operations now identify the citation number and text; keep punctuation outside the control. Automatically moving the insertion caret outside the new control remains a planned usability fix.
 - Word users can change the text within a control; invalid citation syntax then produces an explicit error on export.
 - Untagged Quarto-looking text is left untouched rather than guessed to be a citation.
 - Raw `.bib` entries are not rewritten, so BibLaTeX-specific fields are preserved in the source file.

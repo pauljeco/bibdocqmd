@@ -6,7 +6,7 @@ const {
   activeKeyFragment, bibliographyTag, citationKeysFromControls, citationSyntax,
   citationSourceFromTitle, citationSourceTitle, citationSyntaxFromControl,
   formatCitationPreview, formatReference, parseBibEntries, parseBibliographyTag,
-  parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
+  parseCitationControl, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
 
 test('extracts entry keys and ignores BibTeX directives', () => {
@@ -118,6 +118,20 @@ test('collects unique citation keys from managed Word controls in document order
     { tag: 'bibword:cite:v1:third', text: '[-@brown2024, p. 7]' },
   ]);
   assert.deepEqual(keys, ['smith2020', 'jones2022', 'brown2024']);
+});
+
+test('identifies the malformed citation control and explains trailing punctuation', () => {
+  assert.throws(() => citationKeysFromControls([
+    { tag: 'bibword:cite:v1:first', text: '[@smith2020]' },
+    { tag: 'bibword:cite:v1:second', text: '[@bennett1998-spatial]. ' },
+  ]), /Citation 2 "\[@bennett1998-spatial\]\." is invalid:.*punctuation outside/);
+
+  assert.deepEqual(parseCitationControl({
+    text: '(Smith, 2020)', title: citationSourceTitle('@smith2020'),
+  }), {
+    source: '@smith2020',
+    parsed: { keys: ['smith2020'], mode: 'narrative', locator: '' },
+  });
 });
 
 test('retains canonical citation syntax while controls show formatted text', () => {

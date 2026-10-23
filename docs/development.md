@@ -63,6 +63,8 @@ The certificate tool may request `sudo` on Linux to add its local development CA
 11. Inspect `word/document.xml` for tags beginning `bibword:cite:v1:` and a marker tag matching `bibword:refs:v2:<identity>:<style>`. Formatted controls must have a `w:alias` beginning `BibWord citation source v1:`. For a custom style, also confirm that the DOCX contains a `customXML/item*.xml` part in the `urn:bibword:csl-style:v1` namespace.
 12. Export it with the command below. Confirm that the `.qmd` contains the matching `csl` path, the generated `bibword-reference-*.docx` path, and a `#refs` Div at the marker position. Confirm that formatted display text does not leak into the QMD, generated Word references are not duplicated, rendered references occur before any text following the marker, and Quarto DOCX references use a 0.5-inch hanging indent.
 
+If a document-wide operation reports `Citation N "..." is invalid`, inspect that numbered blue control. Sentence punctuation must sit outside the control; the diagnostic adds an explicit hint when it detects text after a closing citation bracket. Display switching remains all-or-nothing so a failed batch does not leave the document in a mixed state.
+
 ```bash
 .venv/bin/bibword-export downloaded.docx \
   --bib examples/references.bib \

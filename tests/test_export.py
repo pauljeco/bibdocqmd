@@ -228,6 +228,37 @@ def test_formatted_and_copied_controls_export_from_canonical_alias(tmp_path):
     assert '(Smith, 2020)' not in rendered
 
 
+def test_invalid_control_error_identifies_position_text_and_punctuation(tmp_path):
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    document = Document()
+    for index, visible in enumerate(['[@smith2020]', '[@bennett1998-spatial]. '], 1):
+        paragraph = document.add_paragraph()
+        citation = OxmlElement('w:sdt')
+        properties = OxmlElement('w:sdtPr')
+        tag = OxmlElement('w:tag')
+        tag.set(qn('w:val'), f'bibword:cite:v1:test-{index}')
+        properties.append(tag)
+        content = OxmlElement('w:sdtContent')
+        run = OxmlElement('w:r')
+        text = OxmlElement('w:t')
+        text.text = visible
+        run.append(text)
+        content.append(run)
+        citation.extend([properties, content])
+        paragraph._p.append(citation)
+
+    source = tmp_path / 'invalid-control.docx'
+    document.save(source)
+    with pytest.raises(CitationError) as caught:
+        extract_tagged_controls(source)
+    message = str(caught.value)
+    assert "Citation 2 '[@bennett1998-spatial].' is invalid" in message
+    assert 'Keep sentence punctuation outside the blue citation control.' in message
+
+
 def test_bibliography_marker_style_metadata_is_versioned_and_validated():
     assert bibliography_style_from_tag('bibword:refs:v1:legacy') is None
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:apa') == 'apa'

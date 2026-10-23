@@ -7,7 +7,7 @@
 - Microsoft `office-addin-manifest` 3.0.1 confirmed that the XML follows the current add-in schema. Its broader acceptance check initially rejected the prototype's `0.1.0.0` manifest version and missing support URL; both were corrected. The manifest now declares the WordApi 1.1 requirement used by range insertion and rich-text content controls.
 - Pure citation construction and basic key scanning were separated from the Office host so they can be exercised by Node's built-in test runner.
 - The local HTTPS server now reads credentials directly from `office-addin-dev-certs`; developers no longer copy private keys into the source tree.
-- Real Word-for-the-web tests on Ubuntu/Firefox succeeded on 23 October 2026: citation controls and a bibliography marker survived save/reopen and DOCX download; bundled and custom CSL styles persisted; generated bibliographies retained italics and hanging indents; and formatted-view copy/paste plus saving preserved canonical citation aliases. Key-view copy/paste, collaboration, and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
+- Real Word-for-the-web tests on Ubuntu/Firefox succeeded on 23 October 2026: citation controls and a bibliography marker survived save/reopen and DOCX download; bundled and custom CSL styles persisted; generated bibliographies retained italics and hanging indents; and copy/paste in both citation display modes preserved independent canonical aliases. Collaboration and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
 - The first formatted-citation toggle host test converted one citation and then returned `ApiNotFound`. The downloaded package showed that replacement and alias persistence had succeeded before Word rejected `Range.font.reset()`. After removing that call, the real-host retest converted all eight citations and restored their exact editable syntax; the downloaded key-view document retained all control identities and exported successfully.
 - The current `office-addin-dev-certs` 3.0.1 dependency brings a high-severity `node-forge` advisory through `mkcert`, with no npm-published fix reported on this date. It is a development-only certificate tool and is not shipped in the task pane, but it should be replaced or upgraded once a fixed upstream version is available.
 
@@ -47,7 +47,7 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 1. **Word web validation**: content-control save/persist semantics and tenant sideloading rights.
 2. **Reliable `.bib` support**: current task pane extracts basic keys, but cannot parse multiline/nested BibLaTeX records fully. Plan a real parser and library state management.
-3. **Collaborative editing**: formatted-view copy/paste now works in the recorded Word-for-the-web path, including duplicated BibWord tags with distinct Word control IDs. Key-view copy/paste, multi-user merges, and deleted citations still require real-host tests.
+3. **Collaborative editing**: copy/paste in both display modes now works in the recorded Word-for-the-web path, including duplicated BibWord tags with distinct Word control IDs. Multi-user merges and concurrent deletion still require real-host tests.
 4. **DOI-based metadata editing**: out of scope for first spike; optional future differentiation.
 5. **Better Quarto exporter**: decide how to handle citations typed without a managed content control; avoid false positives inside prose/code.
 6. **Advanced structure**: figures, footnotes, equations, cross-references and tracked changes require test documents.
@@ -55,4 +55,4 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 ## Explicit next engineering task
 
-Validate the complete workflow in a current Windows Word desktop build. As a narrow Word-for-the-web follow-up, copy a key-view citation and explicitly close and reopen the document before export.
+Move the Word caret outside newly inserted citation controls so following sentence punctuation is not accidentally captured. Then validate the complete workflow in a current Windows Word desktop build.

@@ -242,6 +242,17 @@ def citation_ast(citation_text: str) -> dict:
     return inlines[0]
 
 
+def citation_control_error(position: int, citation_text: str, error: CitationError) -> CitationError:
+    """Add enough Word-control context for a writer to repair bad syntax."""
+    compact = ' '.join(citation_text.split())
+    preview = compact if len(compact) <= 100 else compact[:97] + '...'
+    hint = ''
+    if compact.startswith('[') and ']' in compact and not compact.endswith(']'):
+        hint = ' Keep sentence punctuation outside the blue citation control.'
+    return CitationError(
+        f'Citation {position} {preview!r} is invalid: {error}{hint}')
+
+
 def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
     """Replace BibWord controls with unique tokens in a temporary document part."""
     with zipfile.ZipFile(docx) as archive:
@@ -249,6 +260,7 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
     root = etree.fromstring(original)
     mapping: dict[str, dict] = {}
     bibliography_found = False
+    citation_position = 0
     for control in list(root.xpath('.//w:sdt', namespaces=NS)):
         tag = control.find(f'{W}sdtPr/{W}tag')
         value = tag.get(W + 'val', '') if tag is not None else ''
@@ -260,6 +272,7 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
         if content is None:
             raise CitationError(f'BibWord control has no content: {value}')
         if is_citation:
+            citation_position += 1
             if content.xpath('.//w:p', namespaces=NS):
                 raise CitationError(f'Citation control must be inline: {value}')
             texts = content.xpath('.//w:t/text()', namespaces=NS)
@@ -269,7 +282,10 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
             citation_text = (alias_value.removeprefix(CITATION_SOURCE_ALIAS_PREFIX).strip()
                              if alias_value.startswith(CITATION_SOURCE_ALIAS_PREFIX)
                              else visible_text)
-            ast = citation_ast(citation_text)
+            try:
+                ast = citation_ast(citation_text)
+            except CitationError as exc:
+                raise citation_control_error(citation_position, citation_text, exc) from exc
         else:
             if bibliography_found:
                 raise CitationError('Only one BibWord bibliography marker is allowed.')

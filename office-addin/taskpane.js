@@ -4,8 +4,8 @@
   const $ = (id) => document.getElementById(id);
   const {
     bibliographyTag, CITATION_TITLE, citationKeysFromControls, citationSourceFromTitle,
-    citationSourceTitle, citationSyntax, citationSyntaxFromControl, parseBibliographyTag,
-    parseCitationSyntax, replaceActiveKey, suggestKeys,
+    citationSourceTitle, citationSyntax, parseBibliographyTag, parseCitationControl,
+    replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
   const {
     createLibrary, CSL_STYLES, customStyleIdentity, registerCslStyle, validateCslStyle,
@@ -486,8 +486,7 @@
       if (!selected.tag.startsWith('bibword:cite:v1:')) {
         throw new Error('The selected content control is not a BibWord citation.');
       }
-      const source = citationSyntaxFromControl(selected);
-      const parsed = parseCitationSyntax(source);
+      const { source, parsed } = parseCitationControl(selected);
       $('citation-keys').value = parsed.keys.join('; ');
       $('mode').value = parsed.mode;
       $('locator').value = parsed.locator;
@@ -500,7 +499,8 @@
       selectedControlId = null;
       $('update-selected').disabled = true;
       $('editing-status').textContent = 'To edit, place the cursor inside a BibWord citation and load it.';
-      setStatus('Could not load a BibWord citation. Place the cursor inside its blue citation text and try again.', true);
+      setStatus('Could not load the selected BibWord citation: '
+        + (error.message || String(error)), true);
     }
   }
 
@@ -564,9 +564,8 @@
         await context.sync();
         const controls = collection.items.filter(({ tag }) => tag.startsWith('bibword:cite:v1:'));
         if (!controls.length) throw new Error('The document has no managed citations.');
-        const replacements = controls.map((control) => {
-          const source = citationSyntaxFromControl(control);
-          const parsed = parseCitationSyntax(source);
+        const replacements = controls.map((control, index) => {
+          const { source, parsed } = parseCitationControl(control, index + 1);
           const text = mode === 'formatted'
             ? cslLibrary.formatCitation(parsed.keys, parsed.mode, parsed.locator, selectedStyle())
             : source;

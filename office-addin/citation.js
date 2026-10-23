@@ -227,12 +227,38 @@
     return { keys, mode: suppress ? 'suppress' : 'parenthetical', locator };
   }
 
+  function citationControlError(control, position, error) {
+    const title = String(control.title || '');
+    const source = title.startsWith(CITATION_SOURCE_TITLE_PREFIX)
+      ? title.slice(CITATION_SOURCE_TITLE_PREFIX.length).trim()
+      : String(control.text || '').trim();
+    const compact = source.replace(/\s+/g, ' ');
+    const preview = compact.length > 100 ? `${compact.slice(0, 97)}...` : compact;
+    const label = position ? `Citation ${position}` : 'Selected citation';
+    const hint = compact.startsWith('[') && compact.includes(']') && !compact.endsWith(']')
+      ? ' Keep sentence punctuation outside the blue citation control.'
+      : '';
+    return new Error(`${label}${preview ? ` ${JSON.stringify(preview)}` : ''} is invalid: `
+      + `${error.message || String(error)}${hint}`);
+  }
+
+  function parseCitationControl(control = {}, position = null) {
+    try {
+      const source = citationSyntaxFromControl(control);
+      return { source, parsed: parseCitationSyntax(source) };
+    } catch (error) {
+      throw citationControlError(control, position, error);
+    }
+  }
+
   function citationKeysFromControls(controls) {
     const keys = [];
     const seen = new Set();
+    let position = 0;
     controls.forEach((control = {}) => {
       if (!(control.tag || '').startsWith('bibword:cite:v1:')) return;
-      parseCitationSyntax(citationSyntaxFromControl(control)).keys.forEach((key) => {
+      position += 1;
+      parseCitationControl(control, position).parsed.keys.forEach((key) => {
         if (!seen.has(key)) {
           seen.add(key);
           keys.push(key);
@@ -369,6 +395,7 @@
     formatReference,
     parseBibEntries,
     parseBibliographyTag,
+    parseCitationControl,
     parseCitationSyntax,
     parseKeys,
     replaceActiveKey,
