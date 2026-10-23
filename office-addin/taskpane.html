@@ -83,12 +83,19 @@
     </section>
     <section aria-labelledby="bibliography-heading">
       <h2 id="bibliography-heading">5. Place the bibliography</h2>
-      <p class="section-copy">Put the cursor where the references must appear. BibWord stores the generated Word bibliography inside this marker; Quarto replaces the whole block during export.</p>
+      <p class="section-copy">Put the cursor where the references must appear. Add one marker for the whole document or one inside each heading section that needs its own references.</p>
+      <label for="bibliography-scope">References to include</label>
+      <select id="bibliography-scope">
+        <option value="document">Entire document</option>
+        <option value="heading1">Current Heading 1 chapter</option>
+        <option value="heading2">Current Heading 2 section</option>
+        <option value="heading3">Current Heading 3 subsection</option>
+      </select>
       <div class="button-grid">
         <button id="insert-bibliography" type="button" disabled>Insert marker</button>
         <button id="format-bibliography" type="button" disabled>Update in Word</button>
       </div>
-      <small id="bibliography-render-status">Use one marker per document. Load a bibliography to generate its formatted references in Word.</small>
+      <small id="bibliography-render-status">Scoped markers use Word Heading 1–3 structure, not page-layout section breaks.</small>
     </section>
     <footer>
       Citations are stored as Word content controls with recoverable Pandoc citation syntax.

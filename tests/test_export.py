@@ -15,9 +15,11 @@ from lxml import etree
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from bibword.export import (
-    CitationError, bibliography_style_from_tag, citation_ast, export_docx,
+    CitationError, bibliography_metadata_from_tag, bibliography_style_from_tag,
+    citation_ast, export_docx,
     embedded_csl_styles, extract_tagged_controls, materialize_csl_style,
-    materialize_reference_docx, validate_csl_style,
+    materialize_multiple_bibliographies_filter, materialize_reference_docx,
+    validate_csl_style,
 )
 
 DOCX = ROOT / 'examples' / 'bibword_demo.docx'
@@ -43,6 +45,19 @@ def test_pandoc_parses_citation_types(syntax, mode, keys):
 def test_rejects_invalid_syntax(invalid):
     with pytest.raises(CitationError):
         citation_ast(invalid)
+
+
+def test_bibliography_metadata_supports_scopes_and_legacy_tags():
+    assert bibliography_metadata_from_tag('bibword:refs:v3:chapter-one:apa:heading1') == {
+        'version': 3,
+        'id': 'chapter-one',
+        'style': 'apa',
+        'scope': 'heading1',
+    }
+    assert bibliography_metadata_from_tag('bibword:refs:v2:old:harvard1')['scope'] == 'document'
+    assert bibliography_metadata_from_tag('bibword:refs:v1:old')['scope'] == 'document'
+    with pytest.raises(CitationError, match='Unsupported bibliography scope'):
+        bibliography_metadata_from_tag('bibword:refs:v3:test:apa:page')
 
 
 def test_fixture_contains_five_real_tagged_controls():
@@ -160,6 +175,89 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert 'reference-doc: "bibword-reference-' in text
 
 
+def test_multiple_heading_scoped_bibliographies_export_and_render(tmp_path):
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    document = Document()
+
+    def add_citation(key):
+        paragraph = document.add_paragraph('Evidence ')
+        citation = OxmlElement('w:sdt')
+        properties = OxmlElement('w:sdtPr')
+        tag = OxmlElement('w:tag')
+        tag.set(qn('w:val'), f'bibword:cite:v1:{key}')
+        properties.append(tag)
+        content = OxmlElement('w:sdtContent')
+        run = OxmlElement('w:r')
+        text = OxmlElement('w:t')
+        text.text = f'[@{key}]'
+        run.append(text)
+        content.append(run)
+        citation.extend([properties, content])
+        paragraph._p.append(citation)
+
+    def add_marker(marker_id):
+        paragraph = document.add_heading('References', level=2)
+        marker = OxmlElement('w:sdt')
+        properties = OxmlElement('w:sdtPr')
+        tag = OxmlElement('w:tag')
+        tag.set(qn('w:val'), f'bibword:refs:v3:{marker_id}:apa:heading1')
+        properties.append(tag)
+        content = OxmlElement('w:sdtContent')
+        parent = paragraph._p.getparent()
+        index = parent.index(paragraph._p)
+        parent.remove(paragraph._p)
+        content.append(paragraph._p)
+        marker.extend([properties, content])
+        parent.insert(index, marker)
+
+    document.add_heading('Chapter one', level=1)
+    add_citation('smith2020')
+    add_marker('chapter-one')
+    document.add_heading('Chapter two', level=1)
+    add_citation('jones2022')
+    add_citation('smith2020')
+    add_marker('chapter-two')
+
+    source = tmp_path / 'scoped.docx'
+    output = tmp_path / 'scoped.qmd'
+    document.save(source)
+    assert export_docx(source, output, BIB) == 3
+
+    qmd = output.read_text(encoding='utf-8')
+    assert 'bibword-refs-chapter-one' in qmd
+    assert 'bibword-refs-chapter-two' in qmd
+    assert 'data-bibword-scope="heading1"' in qmd
+    assert 'citeproc: false' in qmd
+    assert 'bibword-multiple-bibliographies.lua' in qmd
+    filter_path = tmp_path / 'bibword-multiple-bibliographies.lua'
+    assert filter_path.is_file()
+
+    rendered = subprocess.run([
+        'pandoc', str(output), '--lua-filter', str(filter_path), '--to', 'html',
+    ], cwd=tmp_path, capture_output=True, text=True, check=True).stdout
+    normalized = rendered.casefold()
+    first_chapter = normalized.index('chapter one')
+    second_chapter = normalized.index('chapter two')
+    first_reference = normalized.index('illustrative citation workflow')
+    second_reference = normalized.index('demonstration of structured citations')
+    assert first_chapter < first_reference < second_chapter < second_reference
+    assert normalized.count('illustrative citation workflow') == 2
+    assert normalized.count('demonstration of structured citations') == 1
+    assert 'id="bibword-refs-chapter-one-ref-smith2020"' in rendered
+    assert 'id="bibword-refs-chapter-two-ref-smith2020"' in rendered
+    assert 'href="#ref-' not in rendered
+
+
+def test_scoped_filter_is_not_silently_overwritten(tmp_path):
+    target = materialize_multiple_bibliographies_filter(tmp_path)
+    target.write_text('user-owned filter', encoding='utf-8')
+    with pytest.raises(CitationError, match='Refusing to overwrite'):
+        materialize_multiple_bibliographies_filter(tmp_path)
+
+
 def test_generated_reference_docx_has_hanging_bibliography_style(tmp_path):
     target = materialize_reference_docx(tmp_path)
     assert target.name.startswith('bibword-reference-')
@@ -265,11 +363,12 @@ def test_bibliography_marker_style_metadata_is_versioned_and_validated():
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:harvard1') == 'harvard1'
     assert bibliography_style_from_tag('bibword:refs:v2:marker-id:custom-0123456789ab') \
         == 'custom-0123456789ab'
+    assert bibliography_style_from_tag('bibword:refs:v3:marker-id:apa:heading2') == 'apa'
     with pytest.raises(CitationError, match='Unsupported bibliography style'):
         bibliography_style_from_tag('bibword:refs:v2:marker-id:unknown')
     with pytest.raises(CitationError, match='identity and CSL style'):
         bibliography_style_from_tag('bibword:refs:v2:broken')
-    with pytest.raises(CitationError, match='Unsupported bibliography marker'):
+    with pytest.raises(CitationError, match='identity, CSL style, and scope'):
         bibliography_style_from_tag('bibword:refs:v3:future')
 
 

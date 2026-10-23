@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   activeKeyFragment, bibliographyTag, citationKeysFromControls, citationSyntax,
+  citationKeysForBibliographyScope,
   citationSourceFromTitle, citationSourceTitle, citationSyntaxFromControl,
   formatCitationPreview, formatReference, parseBibEntries, parseBibliographyTag,
   parseCitationControl, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
@@ -146,19 +147,56 @@ test('retains canonical citation syntax while controls show formatted text', () 
 });
 
 test('versions bibliography tags and preserves legacy marker identities', () => {
-  assert.equal(bibliographyTag('marker-123', 'apa'), 'bibword:refs:v2:marker-123:apa');
+  assert.equal(bibliographyTag('marker-123', 'apa'),
+    'bibword:refs:v3:marker-123:apa:document');
+  assert.equal(bibliographyTag('marker-123', 'apa', 'heading2'),
+    'bibword:refs:v3:marker-123:apa:heading2');
+  assert.deepEqual(parseBibliographyTag('bibword:refs:v3:marker-123:harvard1:heading1'), {
+    version: 3, id: 'marker-123', style: 'harvard1', scope: 'heading1',
+  });
   assert.deepEqual(parseBibliographyTag('bibword:refs:v2:marker-123:harvard1'), {
-    version: 2, id: 'marker-123', style: 'harvard1',
+    version: 2, id: 'marker-123', style: 'harvard1', scope: 'document',
   });
   assert.deepEqual(parseBibliographyTag('bibword:refs:v2:marker-123:custom-0123456789ab'), {
-    version: 2, id: 'marker-123', style: 'custom-0123456789ab',
+    version: 2, id: 'marker-123', style: 'custom-0123456789ab', scope: 'document',
   });
   assert.deepEqual(parseBibliographyTag('bibword:refs:v1:legacy-marker'), {
-    version: 1, id: 'legacy-marker', style: null,
+    version: 1, id: 'legacy-marker', style: null, scope: 'document',
   });
   assert.equal(parseBibliographyTag('bibword:cite:v1:not-a-marker'), null);
   assert.throws(() => parseBibliographyTag('bibword:refs:v2:broken'), /invalid style metadata/);
-  assert.throws(() => parseBibliographyTag('bibword:refs:v3:future'), /Unsupported/);
+  assert.throws(() => parseBibliographyTag('bibword:refs:v3:future'), /invalid scoped metadata/);
+  assert.throws(() => bibliographyTag('marker-123', 'apa', 'page'), /Invalid bibliography scope/);
+});
+
+test('collects document, chapter, and nested section bibliography keys', () => {
+  const paragraphs = [
+    { headingLevel: 1, citationKeys: [] },
+    { citationKeys: ['chapter-one'] },
+    { headingLevel: 2, citationKeys: [] },
+    { citationKeys: ['section-one', 'shared'] },
+    { marker: 'section-one', citationKeys: [] },
+    { headingLevel: 2, citationKeys: [] },
+    { citationKeys: ['section-two', 'shared'] },
+    { marker: 'section-two', citationKeys: [] },
+    { marker: 'chapter-one', citationKeys: [] },
+    { headingLevel: 1, citationKeys: [] },
+    { citationKeys: ['chapter-two', 'shared'] },
+    { marker: 'chapter-two', citationKeys: [] },
+    { marker: 'document', citationKeys: [] },
+  ];
+  assert.deepEqual(citationKeysForBibliographyScope(paragraphs, 4, 'heading2'),
+    ['section-one', 'shared']);
+  assert.deepEqual(citationKeysForBibliographyScope(paragraphs, 7, 'heading2'),
+    ['section-two', 'shared']);
+  assert.deepEqual(citationKeysForBibliographyScope(paragraphs, 8, 'heading1'),
+    ['chapter-one', 'section-one', 'shared', 'section-two']);
+  assert.deepEqual(citationKeysForBibliographyScope(paragraphs, 11, 'heading1'),
+    ['chapter-two', 'shared']);
+  assert.deepEqual(citationKeysForBibliographyScope(paragraphs, 12, 'document'),
+    ['chapter-one', 'section-one', 'shared', 'section-two', 'chapter-two']);
+  assert.throws(() => citationKeysForBibliographyScope(paragraphs, 4, 'heading3'),
+    /not inside a Heading 3 section/);
 });
 
 test('rejects invalid input instead of creating ambiguous syntax', () => {

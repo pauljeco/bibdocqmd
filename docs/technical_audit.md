@@ -10,6 +10,7 @@
 - Real Word-for-the-web tests on Ubuntu/Firefox succeeded on 23 October 2026: citation controls and a bibliography marker survived save/reopen and DOCX download; bundled and custom CSL styles persisted; generated bibliographies retained italics and hanging indents; and copy/paste in both citation display modes preserved independent canonical aliases. Collaboration and Word desktop remain pending; automated tests and manifest validation are not treated as substitutes.
 - The first formatted-citation toggle host test converted one citation and then returned `ApiNotFound`. The downloaded package showed that replacement and alias persistence had succeeded before Word rejected `Range.font.reset()`. After removing that call, the real-host retest converted all eight citations and restored their exact editable syntax; the downloaded key-view document retained all control identities and exported successfully.
 - The current `office-addin-dev-certs` 3.0.1 dependency brings a high-severity `node-forge` advisory through `mkcert`, with no npm-published fix reported on this date. It is a development-only certificate tool and is not shipped in the task pane, but it should be replaced or upgraded once a fixed upstream version is available.
+- Multiple bibliography markers now carry a versioned document/Heading 1/Heading 2/Heading 3 scope. Automated DOCX → QMD → Quarto HTML/DOCX tests confirm independent citeproc lists and repeated references across chapter scopes; real Word-host persistence remains unverified.
 
 ## User-facing requirement
 
@@ -31,6 +32,7 @@ Source: <https://github.com/JabRef/JabRef-Word-Addin>
 - `Word.Range.insertText(...)`, returning a `Word.Range`.
 - `Word.Range.insertContentControl()` around the inserted range, returning a `Word.ContentControl`.
 - `Word.ContentControl.tag` / `title` persistence into DOCX (`w:sdtPr/w:tag`).
+- `Word.Body.getOoxml()` heading and content-control ordering for scoped bibliography updates (WordApi 1.1).
 - Confirm that Word for the web produces *inline* controls, and that this exporter reads the saved Word XML in a native DOCX (not a LibreOffice re-save).
 
 API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.range> and <https://learn.microsoft.com/en-us/javascript/api/word/word.contentcontrol>
@@ -40,7 +42,7 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 - Uses Pandoc's DOCX reader for headings, paragraphs, lists, tables.
 - Reads the original Word package directly, extracts tagged content controls, parses visible citation syntax with Pandoc (no custom grammar), and stores Pandoc `Cite` nodes.
 - A temporary copy replaces controls with neutral sentinels.
-- Inserts the native Cite nodes into Pandoc's document AST, then writes Quarto-compatible Markdown with YAML, `.bib` link, and a generated Word reference document whose `Bibliography` style uses a 0.5-inch hanging indent.
+- Inserts the native Cite nodes and scoped bibliography markers into Pandoc's document AST, then writes Quarto-compatible Markdown with YAML, `.bib` link, a bundled multiple-bibliography Lua filter when needed, and a generated Word reference document whose `Bibliography` style uses a 0.5-inch hanging indent.
 - Sample citations render successfully using Pandoc's `--citeproc` with sample references.
 
 ## Product risks / priorities
@@ -55,4 +57,4 @@ API references: <https://learn.microsoft.com/en-us/javascript/api/word/word.rang
 
 ## Explicit next engineering task
 
-Move the Word caret outside newly inserted citation controls so following sentence punctuation is not accidentally captured. Then validate the complete workflow in a current Windows Word desktop build.
+Validate multiple scoped markers through insert, update, save/reopen, download, and export in Word for the web. Then move the Word caret outside newly inserted citation controls and validate the complete workflow in a current Windows Word desktop build.

@@ -30,6 +30,8 @@ CITATION_SOURCE_ALIAS_PREFIX = 'BibWord citation source v1: '
 BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:'
 BIBLIOGRAPHY_TAG_V1_PREFIX = 'bibword:refs:v1:'
 BIBLIOGRAPHY_TAG_V2_PREFIX = 'bibword:refs:v2:'
+BIBLIOGRAPHY_TAG_V3_PREFIX = 'bibword:refs:v3:'
+BIBLIOGRAPHY_SCOPES = {'document', 'heading1', 'heading2', 'heading3'}
 CUSTOM_CSL_NAMESPACE = 'urn:bibword:csl-style:v1'
 CSL_NAMESPACE = 'http://purl.org/net/xbiblio/csl'
 SUPPORTED_STYLES = {
@@ -45,21 +47,39 @@ class CitationError(ValueError):
     """Citation is invalid or could not be mapped to Pandoc syntax."""
 
 
-def bibliography_style_from_tag(tag: str) -> str | None:
-    """Return persisted style metadata while accepting legacy v1 markers."""
+def bibliography_metadata_from_tag(tag: str) -> dict[str, str | int | None]:
+    """Return marker identity, style, and semantic scope across tag versions."""
     if tag.startswith(BIBLIOGRAPHY_TAG_V1_PREFIX):
-        if not tag.removeprefix(BIBLIOGRAPHY_TAG_V1_PREFIX):
+        marker_id = tag.removeprefix(BIBLIOGRAPHY_TAG_V1_PREFIX)
+        if not marker_id:
             raise CitationError('Bibliography marker has no identity.')
-        return None
-    if not tag.startswith(BIBLIOGRAPHY_TAG_V2_PREFIX):
+        return {'version': 1, 'id': marker_id, 'style': None, 'scope': 'document'}
+    if tag.startswith(BIBLIOGRAPHY_TAG_V3_PREFIX):
+        parts = tag.removeprefix(BIBLIOGRAPHY_TAG_V3_PREFIX).split(':')
+        if len(parts) != 3 or not all(parts):
+            raise CitationError(
+                'Bibliography v3 marker must contain an identity, CSL style, and scope.')
+        marker_id, style, scope = parts
+        if scope not in BIBLIOGRAPHY_SCOPES:
+            raise CitationError(f'Unsupported bibliography scope: {scope}')
+        version = 3
+    elif tag.startswith(BIBLIOGRAPHY_TAG_V2_PREFIX):
+        metadata = tag.removeprefix(BIBLIOGRAPHY_TAG_V2_PREFIX)
+        marker_id, separator, style = metadata.rpartition(':')
+        if not separator or not marker_id or not style:
+            raise CitationError('Bibliography v2 marker must contain an identity and CSL style.')
+        scope = 'document'
+        version = 2
+    else:
         raise CitationError(f'Unsupported bibliography marker: {tag}')
-    metadata = tag.removeprefix(BIBLIOGRAPHY_TAG_V2_PREFIX)
-    marker_id, separator, style = metadata.rpartition(':')
-    if not separator or not marker_id or not style:
-        raise CitationError('Bibliography v2 marker must contain an identity and CSL style.')
     if style not in SUPPORTED_STYLES and not CUSTOM_STYLE_PATTERN.fullmatch(style):
         raise CitationError(f'Unsupported bibliography style: {style}')
-    return style
+    return {'version': version, 'id': marker_id, 'style': style, 'scope': scope}
+
+
+def bibliography_style_from_tag(tag: str) -> str | None:
+    """Return persisted style metadata while accepting legacy markers."""
+    return bibliography_metadata_from_tag(tag)['style']
 
 
 def csl_style_path(style: str) -> Path:
@@ -150,6 +170,19 @@ def materialize_csl_style(style: str, destination: Path,
     target = destination / f'bibword-{style}.csl'
     if target.exists() and target.read_bytes() != content:
         raise CitationError(f'Refusing to overwrite a different CSL file: {target}')
+    target.write_bytes(content)
+    return target
+
+
+def materialize_multiple_bibliographies_filter(destination: Path) -> Path:
+    """Write BibWord's bundled scoped-bibliography Lua filter safely."""
+    source = Path(__file__).with_name('filters') / 'multiple_bibliographies.lua'
+    if not source.is_file():
+        raise CitationError(f'Bundled multiple-bibliography filter is missing: {source}')
+    content = source.read_bytes()
+    target = destination / 'bibword-multiple-bibliographies.lua'
+    if target.exists() and target.read_bytes() != content:
+        raise CitationError(f'Refusing to overwrite a different Lua filter: {target}')
     target.write_bytes(content)
     return target
 
@@ -259,7 +292,7 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
         original = archive.read('word/document.xml')
     root = etree.fromstring(original)
     mapping: dict[str, dict] = {}
-    bibliography_found = False
+    bibliography_ids: set[str] = set()
     citation_position = 0
     for control in list(root.xpath('.//w:sdt', namespaces=NS)):
         tag = control.find(f'{W}sdtPr/{W}tag')
@@ -287,20 +320,25 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
             except CitationError as exc:
                 raise citation_control_error(citation_position, citation_text, exc) from exc
         else:
-            if bibliography_found:
-                raise CitationError('Only one BibWord bibliography marker is allowed.')
             marker_paragraphs = content.xpath('./w:p', namespaces=NS)
             if not marker_paragraphs:
                 raise CitationError('Bibliography marker must occupy its own paragraph.')
-            bibliography_found = True
+            metadata = bibliography_metadata_from_tag(value)
+            marker_id = str(metadata['id'])
+            if marker_id in bibliography_ids:
+                raise CitationError(
+                    f'Bibliography marker {marker_id} was copied; insert a new marker instead.')
+            bibliography_ids.add(marker_id)
             # A Word-formatted bibliography may occupy later paragraphs inside
             # the marker. Only the first paragraph is the authoritative title.
             marker_title = ''.join(marker_paragraphs[0].xpath('.//w:t/text()',
                                    namespaces=NS)).strip()
             ast = {
                 't': 'BibWordBibliography',
+                'id': marker_id,
                 'title': marker_title or 'References',
-                'style': bibliography_style_from_tag(value),
+                'style': metadata['style'],
+                'scope': metadata['scope'],
             }
         token = f'BIBWORDCIT{len(mapping) + 1:06d}TOKEN'
         mapping[token] = ast
@@ -337,6 +375,9 @@ def temporary_docx(original_path: Path, document_xml: bytes, destination: Path) 
 def inject_citations(ast: dict, mapping: dict[str, dict]) -> tuple[dict, set[str]]:
     """Restore Cite nodes and the explicit Pandoc bibliography-position Div."""
     seen: set[str] = set()
+    markers = [value for value in mapping.values()
+               if value.get('t') == 'BibWordBibliography']
+    scoped = len(markers) > 1 or any(marker.get('scope') != 'document' for marker in markers)
 
     def transform(node):
         if isinstance(node, dict):
@@ -354,8 +395,24 @@ def inject_citations(ast: dict, mapping: dict[str, dict]) -> tuple[dict, set[str
                             if index:
                                 title_inlines.append({'t': 'Space'})
                             title_inlines.append({'t': 'Str', 'c': word})
-                        heading = {'t': 'Header', 'c': [1, ['', ['unnumbered'], []], title_inlines]}
-                        return {'t': 'Div', 'c': [['refs', [], []], [heading]]}
+                        scope = replacement.get('scope', 'document')
+                        heading_level = (1 if scope == 'document'
+                                         else min(int(scope.removeprefix('heading')) + 1, 6))
+                        heading = {
+                            't': 'Header',
+                            'c': [heading_level, ['', ['unnumbered'], []], title_inlines],
+                        }
+                        if not scoped:
+                            return {'t': 'Div', 'c': [['refs', [], []], [heading]]}
+                        attributes = [
+                            ['data-bibword-id', replacement['id']],
+                            ['data-bibword-scope', scope],
+                        ]
+                        return {
+                            't': 'Div',
+                            'c': [[f"bibword-refs-{replacement['id']}",
+                                   ['bibword-bibliography'], attributes], [heading]],
+                        }
             return {key: transform(value) for key, value in node.items()}
         if not isinstance(node, list):
             return node
@@ -392,6 +449,62 @@ def inject_citations(ast: dict, mapping: dict[str, dict]) -> tuple[dict, set[str
     return output, seen
 
 
+def validate_bibliography_scopes(ast: dict) -> None:
+    """Reject scoped markers outside their heading or without any citations."""
+    blocks = ast.get('blocks', [])
+
+    def marker_metadata(block: dict) -> tuple[str, str] | None:
+        if block.get('t') != 'Div':
+            return None
+        identifier, classes, attributes = block['c'][0]
+        if 'bibword-bibliography' not in classes:
+            return None
+        values = dict(attributes)
+        return identifier, values.get('data-bibword-scope', 'document')
+
+    def contains_citation(value) -> bool:
+        if isinstance(value, dict):
+            return value.get('t') == 'Cite' or any(
+                contains_citation(child) for child in value.values())
+        if isinstance(value, list):
+            return any(contains_citation(child) for child in value)
+        return False
+
+    for marker_index, block in enumerate(blocks):
+        marker = marker_metadata(block)
+        if not marker:
+            continue
+        identifier, scope = marker
+        if scope == 'document':
+            first, last = 0, len(blocks)
+        else:
+            if scope not in BIBLIOGRAPHY_SCOPES:
+                raise CitationError(f'Unsupported bibliography scope: {scope}')
+            level = int(scope.removeprefix('heading'))
+            first = None
+            for index in range(marker_index - 1, -1, -1):
+                candidate = blocks[index]
+                if candidate.get('t') == 'Header' and candidate['c'][0] <= level:
+                    if candidate['c'][0] != level:
+                        raise CitationError(
+                            f'Bibliography marker {identifier} is not inside a Heading {level} section.')
+                    first = index
+                    break
+            if first is None:
+                raise CitationError(
+                    f'Bibliography marker {identifier} has no preceding Heading {level}.')
+            last = len(blocks)
+            for index in range(first + 1, len(blocks)):
+                candidate = blocks[index]
+                if candidate.get('t') == 'Header' and candidate['c'][0] <= level:
+                    last = index
+                    break
+        if not any(contains_citation(candidate) for candidate in blocks[first:last]):
+            label = 'the document' if scope == 'document' else f'its {scope} section'
+            raise CitationError(
+                f'Bibliography marker {identifier} has no managed citations in {label}.')
+
+
 def bibliography_keys(bib_file: Path) -> set[str]:
     """Basic validation only; not a complete BibLaTeX parser."""
     return set(BIB_KEY_PATTERN.findall(bib_file.read_text(encoding='utf-8-sig')))
@@ -422,6 +535,7 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
         temporary_docx(docx_path, xml, clean_docx)
         doc_ast = json.loads(run_pandoc(str(clean_docx), '-f', 'docx', '-t', 'json'))
         patched_ast, _ = inject_citations(doc_ast, mapping)
+        validate_bibliography_scopes(patched_ast)
         rendered = run_pandoc('-f', 'json', '-t', 'markdown+citations+pipe_tables',
                               '--wrap=none', stdin=json.dumps(patched_ast))
 
@@ -435,11 +549,25 @@ def export_docx(docx_path: str | Path, qmd_path: str | Path,
     styles = {value.get('style') for value in mapping.values()
               if value.get('t') == 'BibWordBibliography' and value.get('style')}
     if styles:
+        if len(styles) > 1:
+            raise CitationError(
+                'Bibliography markers use different CSL styles; choose one document style.')
         style = styles.pop()
         custom_styles = embedded_csl_styles(docx_path) if CUSTOM_STYLE_PATTERN.fullmatch(style) else None
         relative_csl = relpath(materialize_csl_style(style, qmd_path.parent, custom_styles),
                                qmd_path.parent).replace('\\', '/')
         frontmatter += f'csl: {json.dumps(relative_csl, ensure_ascii=False)}\n'
+    markers = [value for value in mapping.values()
+               if value.get('t') == 'BibWordBibliography']
+    scoped = len(markers) > 1 or any(marker.get('scope') != 'document' for marker in markers)
+    if scoped:
+        relative_filter = relpath(
+            materialize_multiple_bibliographies_filter(qmd_path.parent),
+            qmd_path.parent,
+        ).replace('\\', '/')
+        frontmatter += ('citeproc: false\n'
+                        'filters:\n'
+                        f'  - {json.dumps(relative_filter, ensure_ascii=False)}\n')
     relative_reference = relpath(materialize_reference_docx(qmd_path.parent),
                                  qmd_path.parent).replace('\\', '/')
     frontmatter += ('format:\n'

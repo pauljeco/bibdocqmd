@@ -286,19 +286,34 @@
     return citationSourceFromTitle(title) || String(text).trim();
   }
 
-  function bibliographyTag(id, style) {
+  const BIBLIOGRAPHY_SCOPES = new Set(['document', 'heading1', 'heading2', 'heading3']);
+
+  function bibliographyTag(id, style, scope = 'document') {
     if (!/^[a-zA-Z0-9-]+$/.test(id)) throw new Error('Invalid bibliography marker identity.');
     if (!/^[a-z0-9-]+$/.test(style)) throw new Error('Invalid bibliography style identifier.');
-    return `bibword:refs:v2:${id}:${style}`;
+    if (!BIBLIOGRAPHY_SCOPES.has(scope)) throw new Error('Invalid bibliography scope.');
+    return `bibword:refs:v3:${id}:${style}:${scope}`;
   }
 
   function parseBibliographyTag(tag) {
     const legacyPrefix = 'bibword:refs:v1:';
     const stylePrefix = 'bibword:refs:v2:';
+    const scopePrefix = 'bibword:refs:v3:';
     if (tag.startsWith(legacyPrefix)) {
       const id = tag.slice(legacyPrefix.length);
       if (!id) throw new Error('Bibliography marker has no identity.');
-      return { version: 1, id, style: null };
+      return { version: 1, id, style: null, scope: 'document' };
+    }
+    if (tag.startsWith(scopePrefix)) {
+      const metadata = tag.slice(scopePrefix.length).split(':');
+      if (metadata.length !== 3 || !metadata.every(Boolean)) {
+        throw new Error('Bibliography marker has invalid scoped metadata.');
+      }
+      const [id, style, scope] = metadata;
+      if (!BIBLIOGRAPHY_SCOPES.has(scope)) {
+        throw new Error(`Unsupported bibliography scope: ${scope}`);
+      }
+      return { version: 3, id, style, scope };
     }
     if (!tag.startsWith(stylePrefix)) {
       if (tag.startsWith('bibword:refs:')) throw new Error(`Unsupported bibliography marker: ${tag}`);
@@ -313,7 +328,53 @@
       version: 2,
       id: metadata.slice(0, separator),
       style: metadata.slice(separator + 1),
+      scope: 'document',
     };
+  }
+
+  function citationKeysForBibliographyScope(paragraphs, markerIndex, scope) {
+    if (!BIBLIOGRAPHY_SCOPES.has(scope)) throw new Error(`Unsupported bibliography scope: ${scope}`);
+    if (!Number.isInteger(markerIndex) || markerIndex < 0 || markerIndex >= paragraphs.length) {
+      throw new Error('Bibliography marker position is invalid.');
+    }
+    let start = 0;
+    let end = paragraphs.length;
+    if (scope !== 'document') {
+      const level = Number(scope.slice('heading'.length));
+      start = -1;
+      for (let index = markerIndex - 1; index >= 0; index -= 1) {
+        const headingLevel = paragraphs[index].headingLevel || 0;
+        if (headingLevel && headingLevel <= level) {
+          if (headingLevel !== level) {
+            throw new Error(`This marker is not inside a Heading ${level} section.`);
+          }
+          start = index;
+          break;
+        }
+      }
+      if (start < 0) throw new Error(`This marker has no preceding Heading ${level}.`);
+      for (let index = start + 1; index < paragraphs.length; index += 1) {
+        const headingLevel = paragraphs[index].headingLevel || 0;
+        if (headingLevel && headingLevel <= level) {
+          end = index;
+          break;
+        }
+      }
+      if (markerIndex < start || markerIndex >= end) {
+        throw new Error(`This marker is outside its Heading ${level} section.`);
+      }
+    }
+    const seen = new Set();
+    const keys = [];
+    for (let index = start; index < end; index += 1) {
+      for (const key of paragraphs[index].citationKeys || []) {
+        if (!seen.has(key)) {
+          seen.add(key);
+          keys.push(key);
+        }
+      }
+    }
+    return keys;
   }
 
   function familyName(person) {
@@ -384,6 +445,7 @@
   return {
     activeKeyFragment,
     bibliographyTag,
+    citationKeysForBibliographyScope,
     CITATION_SOURCE_TITLE_PREFIX,
     CITATION_TITLE,
     citationKeysFromControls,

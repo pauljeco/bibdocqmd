@@ -3,7 +3,8 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const {
-    bibliographyTag, CITATION_TITLE, citationKeysFromControls, citationSourceFromTitle,
+    bibliographyTag, CITATION_TITLE, citationKeysForBibliographyScope,
+    citationKeysFromControls, citationSourceFromTitle,
     citationSourceTitle, citationSyntax, parseBibliographyTag, parseCitationControl,
     replaceActiveKey, suggestKeys,
   } = globalThis.BibWordCitation;
@@ -50,12 +51,120 @@
     })[character]);
   }
 
-  function wordBibliographyHtml(title, bibliography) {
+  function wordBibliographyHtml(title, bibliography, headingLevel = 1) {
     const styled = bibliography
       .replace('class="csl-bib-body"', 'class="csl-bib-body" style="margin:0;"')
       .replace(/class="csl-entry"/g,
         'class="csl-entry" style="margin-left:0.5in;text-indent:-0.5in;margin-bottom:0.12in;"');
-    return `<h1>${escapeHtml(title)}</h1>${styled}`;
+    return `<h${headingLevel}>${escapeHtml(title)}</h${headingLevel}>${styled}`;
+  }
+
+  const wordNamespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+  function wordValue(element) {
+    return element?.getAttributeNS(wordNamespace, 'val')
+      || element?.getAttribute('w:val') || element?.getAttribute('val') || '';
+  }
+
+  function firstDescendant(element, localName) {
+    return element?.getElementsByTagNameNS(wordNamespace, localName)[0] || null;
+  }
+
+  function controlTag(control) {
+    return wordValue(firstDescendant(firstDescendant(control, 'sdtPr'), 'tag'));
+  }
+
+  function controlSummary(control) {
+    const properties = firstDescendant(control, 'sdtPr');
+    const content = firstDescendant(control, 'sdtContent');
+    const text = content
+      ? [...content.getElementsByTagNameNS(wordNamespace, 't')]
+        .map((node) => node.textContent || '').join('')
+      : '';
+    return {
+      tag: controlTag(control),
+      title: wordValue(firstDescendant(properties, 'alias')),
+      text,
+    };
+  }
+
+  function documentStructureFromOoxml(ooxml) {
+    const parsed = new DOMParser().parseFromString(ooxml, 'application/xml');
+    if (parsed.querySelector('parsererror')) throw new Error('Word returned invalid document XML.');
+    const body = parsed.getElementsByTagNameNS(wordNamespace, 'body')[0];
+    if (!body) throw new Error('Word document XML has no main document body.');
+    const paragraphs = [];
+
+    function addParagraph(paragraph) {
+      const style = wordValue(firstDescendant(firstDescendant(paragraph, 'pPr'), 'pStyle'));
+      const heading = /^Heading([1-9])$/i.exec(style.replace(/\s+/g, ''));
+      const citationKeys = [];
+      const controls = [...paragraph.getElementsByTagNameNS(wordNamespace, 'sdt')];
+      controls.forEach((control) => {
+        const summary = controlSummary(control);
+        if (summary.tag.startsWith('bibword:cite:v1:')) {
+          citationKeys.push(...parseCitationControl(summary).parsed.keys);
+        }
+      });
+      paragraphs.push({
+        headingLevel: heading ? Number(heading[1]) : 0,
+        citationKeys,
+        marker: null,
+      });
+    }
+
+    function walk(container) {
+      [...container.children].forEach((child) => {
+        if (child.namespaceURI !== wordNamespace) return;
+        if (child.localName === 'p') {
+          addParagraph(child);
+          return;
+        }
+        if (child.localName === 'sdt') {
+          const summary = controlSummary(child);
+          if (summary.tag.startsWith('bibword:refs:')) {
+            const content = firstDescendant(child, 'sdtContent');
+            const titleParagraph = firstDescendant(content, 'p');
+            summary.text = titleParagraph
+              ? [...titleParagraph.getElementsByTagNameNS(wordNamespace, 't')]
+                .map((node) => node.textContent || '').join('')
+              : '';
+            paragraphs.push({
+              headingLevel: 0,
+              citationKeys: [],
+              marker: { ...summary, metadata: parseBibliographyTag(summary.tag) },
+            });
+            return;
+          }
+          const content = firstDescendant(child, 'sdtContent');
+          if (content) walk(content);
+          return;
+        }
+        walk(child);
+      });
+    }
+    walk(body);
+    return paragraphs;
+  }
+
+  function bibliographyPlansFromOoxml(ooxml) {
+    const paragraphs = documentStructureFromOoxml(ooxml);
+    const plans = new Map();
+    paragraphs.forEach((paragraph, index) => {
+      if (!paragraph.marker) return;
+      const { metadata, text, tag } = paragraph.marker;
+      if (plans.has(metadata.id)) {
+        throw new Error(`Bibliography marker ${metadata.id} was copied; insert a new marker instead.`);
+      }
+      const keys = citationKeysForBibliographyScope(paragraphs, index, metadata.scope);
+      const title = text.split(/[\r\n]+/)[0].trim() || 'References';
+      plans.set(metadata.id, { keys, metadata, tag, title });
+    });
+    return plans;
+  }
+
+  function bibliographyHeadingLevel(scope) {
+    return scope === 'document' ? 1 : Math.min(Number(scope.slice('heading'.length)) + 1, 9);
   }
 
   function markWordBibliographyStale(message = 'The Word bibliography may be out of date. Choose Update in Word.') {
@@ -400,17 +509,17 @@
       controls.load('items/tag');
       await context.sync();
       const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
-      if (markers.length > 1) throw new Error('The document contains multiple bibliography markers.');
       if (!markers.length) return;
-      const metadata = parseBibliographyTag(markers[0].tag);
-      if (!metadata) return;
       const styleId = selectedStyle();
       if (customStyleIdPattern.test(styleId)) {
         const style = customStyles.get(styleId);
         if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
         await ensureCustomStylePart(context, style);
       }
-      markers[0].tag = bibliographyTag(metadata.id, styleId);
+      markers.forEach((marker) => {
+        const metadata = parseBibliographyTag(marker.tag);
+        marker.tag = bibliographyTag(metadata.id, styleId, metadata.scope);
+      });
       await context.sync();
       saved = true;
     });
@@ -425,8 +534,12 @@
         controls.load('items/tag');
         await context.sync();
         const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
-        if (markers.length > 1) throw new Error('The document contains multiple bibliography markers.');
-        markerTag = markers[0]?.tag || null;
+        const styled = markers.map(({ tag }) => parseBibliographyTag(tag)?.style).filter(Boolean);
+        const styles = [...new Set(styled)];
+        if (styles.length > 1) {
+          throw new Error('Bibliography markers use different citation styles. Choose a style to make them consistent.');
+        }
+        markerTag = markers.find(({ tag }) => parseBibliographyTag(tag)?.style)?.tag || null;
       });
       if (!markerTag) return;
       const metadata = parseBibliographyTag(markerTag);
@@ -605,21 +718,16 @@
           if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
           await ensureCustomStylePart(context, style);
         }
-        const controls = context.document.contentControls;
-        controls.load('items/tag');
-        await context.sync();
-        if (controls.items.some((control) => control.tag.startsWith('bibword:refs:'))) {
-          throw new Error('This document already contains a BibWord bibliography marker.');
-        }
+        const scope = $('bibliography-scope').value;
         const selection = context.document.getSelection();
         const paragraph = selection.insertParagraph('References', Word.InsertLocation.after);
-        paragraph.styleBuiltIn = 'Heading1';
+        paragraph.styleBuiltIn = `Heading${bibliographyHeadingLevel(scope)}`;
         const control = paragraph.insertContentControl();
-        control.tag = bibliographyTag(uniqueId(), styleId);
+        control.tag = bibliographyTag(uniqueId(), styleId, scope);
         control.title = 'BibWord bibliography position';
         await context.sync();
       });
-      setStatus('Bibliography marker inserted with the selected CSL style.');
+      setStatus('Bibliography marker inserted with its heading scope and selected CSL style.');
       markWordBibliographyStale('Bibliography marker inserted. Choose Update in Word to generate references.');
     } catch (error) {
       setStatus('Bibliography marker failed: ' + (error.message || String(error)), true);
@@ -631,41 +739,50 @@
     if (!cslLibrary) return setStatus('Load a bibliography before formatting it in Word.', true);
     try {
       let referenceCount = 0;
+      let bibliographyCount = 0;
       await Word.run(async (context) => {
         const controls = context.document.contentControls;
         controls.load('items/tag,text,title');
+        const bodyOoxml = context.document.body.getOoxml();
         await context.sync();
         const markers = controls.items.filter(({ tag }) => tag.startsWith('bibword:refs:'));
-        if (markers.length !== 1) {
-          throw new Error(markers.length
-            ? 'The document contains multiple bibliography markers.'
-            : 'Insert a bibliography marker before updating the Word bibliography.');
-        }
-        const keys = citationKeysFromControls(
-          controls.items.map(({ tag, text, title }) => ({ tag, text, title })),
-        );
-        if (!keys.length) throw new Error('The document has no managed citations to format.');
-        const marker = markers[0];
-        const metadata = parseBibliographyTag(marker.tag);
+        if (!markers.length) throw new Error('Insert a bibliography marker before updating the Word bibliography.');
+        const plans = bibliographyPlansFromOoxml(bodyOoxml.value);
+        plans.forEach((plan) => {
+          if (!plan.keys.length) {
+            const label = plan.metadata.scope === 'document'
+              ? 'the document' : `its ${plan.metadata.scope.replace('heading', 'Heading ')} section`;
+            throw new Error(`The bibliography marker “${plan.title}” has no managed citations in ${label}.`);
+          }
+        });
         const styleId = selectedStyle();
         if (customStyleIdPattern.test(styleId)) {
           const style = customStyles.get(styleId);
           if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
           await ensureCustomStylePart(context, style);
         }
-        const title = marker.text.split(/[\r\n]+/)[0].trim() || 'References';
-        const bibliography = cslLibrary.formatBibliographyHtml(keys, styleId);
-        marker.tag = bibliographyTag(metadata.id, styleId);
-        marker.title = 'BibWord bibliography position and generated references';
-        marker.insertHtml(wordBibliographyHtml(title, bibliography), Word.InsertLocation.replace);
+        markers.forEach((marker) => {
+          const metadata = parseBibliographyTag(marker.tag);
+          const plan = plans.get(metadata.id);
+          if (!plan) throw new Error(`Could not locate bibliography marker ${metadata.id} in the document body.`);
+          const bibliography = cslLibrary.formatBibliographyHtml(plan.keys, styleId);
+          marker.tag = bibliographyTag(metadata.id, styleId, metadata.scope);
+          marker.title = 'BibWord bibliography position and generated references';
+          marker.insertHtml(wordBibliographyHtml(
+            plan.title, bibliography, bibliographyHeadingLevel(metadata.scope),
+          ), Word.InsertLocation.replace);
+          referenceCount += plan.keys.length;
+        });
         await context.sync();
-        documentCitationKeys = keys;
-        referenceCount = keys.length;
+        documentCitationKeys = citationKeysFromControls(
+          controls.items.map(({ tag, text, title }) => ({ tag, text, title })),
+        );
+        bibliographyCount = markers.length;
       });
       renderDocumentBibliography();
       const styleLabel = $('citation-style').selectedOptions[0].textContent;
-      $('bibliography-render-status').textContent = `${referenceCount} references formatted in Word with ${styleLabel}.`;
-      setStatus('Word bibliography updated. Export will rebuild it from the citation keys.');
+      $('bibliography-render-status').textContent = `${bibliographyCount} bibliograph${bibliographyCount === 1 ? 'y' : 'ies'} updated with ${referenceCount} scoped reference entries in ${styleLabel}.`;
+      setStatus('Word bibliographies updated. Export will rebuild each scope from the citation keys.');
     } catch (error) {
       $('bibliography-render-status').textContent = error.message || String(error);
       setStatus('Could not update the Word bibliography: ' + (error.message || String(error)), true);
