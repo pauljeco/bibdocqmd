@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>2dded7c2-e17a-4533-b191-2c4aafbb9d24</Id>
-  <Version>1.0.0.1</Version>
+  <Version>1.0.0.2</Version>
   <ProviderName>BibWord</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="BibWord hosted pilot"/>
@@ -22,4 +24,68 @@
     <SourceLocation DefaultValue="https://pauljeco.github.io/BibWord/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+                    xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="BibWord.GetStarted.Title"/>
+            <Description resid="BibWord.GetStarted.Description"/>
+            <LearnMoreUrl resid="BibWord.GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          <FunctionFile resid="BibWord.Commands.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="BibWord.CommandsGroup">
+                <Label resid="BibWord.CommandsGroup.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="BibWord.Icon16"/>
+                  <bt:Image size="32" resid="BibWord.Icon32"/>
+                  <bt:Image size="80" resid="BibWord.Icon80"/>
+                </Icon>
+                <Control xsi:type="Button" id="BibWord.OpenTaskpaneButton">
+                  <Label resid="BibWord.OpenTaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="BibWord.OpenTaskpaneButton.Label"/>
+                    <Description resid="BibWord.Open.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="BibWord.Icon16"/>
+                    <bt:Image size="32" resid="BibWord.Icon32"/>
+                    <bt:Image size="80" resid="BibWord.Icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>BibWord.Taskpane</TaskpaneId>
+                    <SourceLocation resid="BibWord.Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="BibWord.Icon16" DefaultValue="https://pauljeco.github.io/BibWord/icon-16.png"/>
+        <bt:Image id="BibWord.Icon32" DefaultValue="https://pauljeco.github.io/BibWord/icon-32.png"/>
+        <bt:Image id="BibWord.Icon80" DefaultValue="https://pauljeco.github.io/BibWord/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="BibWord.Commands.Url" DefaultValue="https://pauljeco.github.io/BibWord/commands.html"/>
+        <bt:Url id="BibWord.Taskpane.Url" DefaultValue="https://pauljeco.github.io/BibWord/taskpane.html"/>
+        <bt:Url id="BibWord.GetStarted.LearnMoreUrl" DefaultValue="https://pauljeco.github.io/BibWord/support.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="BibWord.CommandsGroup.Label" DefaultValue="BibWord"/>
+        <bt:String id="BibWord.OpenTaskpaneButton.Label" DefaultValue="Open BibWord"/>
+        <bt:String id="BibWord.GetStarted.Title" DefaultValue="BibWord is ready"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="BibWord.Open.Tooltip" DefaultValue="Open BibWord to insert, edit, and format citations and bibliographies."/>
+        <bt:String id="BibWord.GetStarted.Description" DefaultValue="Open the Home tab and choose Open BibWord to start working with citations."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
 </OfficeApp>
