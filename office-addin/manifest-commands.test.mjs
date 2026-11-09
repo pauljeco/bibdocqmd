@@ -9,14 +9,16 @@ const manifestCases = [
   },
   {
     file: new URL('./manifest.pages.xml', import.meta.url),
-    baseUrl: 'https://pauljeco.github.io/BibWord',
+    baseUrl: 'https://pauljeco.github.io/bibdocqmd',
   },
 ];
 
 for (const manifestCase of manifestCases) {
-  test(`${manifestCase.file.pathname.split('/').at(-1)} defines the BibWord ribbon command`, async () => {
+  test(`${manifestCase.file.pathname.split('/').at(-1)} defines the bibdocqmd ribbon command`, async () => {
     const manifest = await readFile(manifestCase.file, 'utf8');
 
+    assert.match(manifest, /<DisplayName DefaultValue="bibdocqmd (?:Prototype|hosted pilot)"\/>/);
+    assert.match(manifest, /<bt:String id="BibWord\.OpenTaskpaneButton\.Label" DefaultValue="Open bibdocqmd"\/>/);
     assert.match(manifest, /<VersionOverrides[\s\S]*xsi:type="VersionOverridesV1_0">/);
     assert.match(manifest, /<ExtensionPoint xsi:type="PrimaryCommandSurface">/);
     assert.match(manifest, /<OfficeTab id="TabHome">/);

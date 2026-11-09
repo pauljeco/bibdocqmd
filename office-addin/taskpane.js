@@ -1,4 +1,4 @@
-/* BibWord 0.1 prototype: local CSL previews plus Office.js integration. */
+/* bibdocqmd 0.1 prototype: local CSL previews plus Office.js integration. */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -12,6 +12,7 @@
     createLibraryFromSources, CSL_STYLES, customStyleIdentity, registerCslStyle, sha256Hex,
     validateCslStyle,
   } = globalThis.BibWordCsl;
+  const { fetchGithubBibliography, githubBibliographyUrl } = globalThis.BibWordGithubLibrary;
   const styleIds = new Set(CSL_STYLES.map(({ id }) => id));
   const customStyleNamespace = 'urn:bibword:csl-style:v1';
   const librarySourceNamespace = 'urn:bibword:library-sources:v1';
@@ -322,7 +323,7 @@
 
   function parseCustomStyleStore(xml) {
     const parsed = new DOMParser().parseFromString(xml, 'application/xml');
-    if (parsed.querySelector('parsererror')) throw new Error('The embedded BibWord CSL part is invalid XML.');
+    if (parsed.querySelector('parsererror')) throw new Error('The embedded bibdocqmd CSL part is invalid XML.');
     const root = parsed.documentElement;
     if (root.localName !== 'bibwordStyle' || root.namespaceURI !== customStyleNamespace) return null;
     const id = root.getAttribute('id') || '';
@@ -330,7 +331,7 @@
     const labelNode = root.getElementsByTagNameNS(customStyleNamespace, 'label')[0];
     const cslNode = root.getElementsByTagNameNS(customStyleNamespace, 'csl')[0];
     if (!customStyleIdPattern.test(id) || !/^[0-9a-f]{64}$/.test(hash) || !labelNode || !cslNode) {
-      throw new Error('The embedded BibWord CSL part has invalid metadata.');
+      throw new Error('The embedded bibdocqmd CSL part has invalid metadata.');
     }
     return {
       id, hash,
@@ -500,6 +501,12 @@
     return true;
   }
 
+  function savedGithubUrls() {
+    return rememberedLibrarySources.map(({ name }) => name).filter((name) => {
+      try { return githubBibliographyUrl(name) === name; } catch { return false; }
+    });
+  }
+
   async function restoreDocumentLibrarySources() {
     if (!supportsCustomStylePersistence()) return;
     try {
@@ -515,12 +522,55 @@
       });
       if (rememberedLibrarySources.length) {
         const names = rememberedLibrarySources.map(({ name }) => name).join(', ');
-        $('library-status').textContent = `This document last used: ${names}. Choose those files again to query them.`;
+        $('library-status').textContent = `This document last used: ${names}. Reload saved GitHub files or choose local files again to query them.`;
+        const githubUrls = savedGithubUrls();
+        $('reload-github-libraries').hidden = githubUrls.length === 0;
+        if (githubUrls.length === 1) $('github-bib-url').value = githubUrls[0];
       }
     } catch (error) {
       $('library-status').textContent = 'Could not restore the saved library filenames: '
         + (error.message || String(error));
     }
+  }
+
+  async function addBibliographySources(addedSources, originMessage) {
+    const combinedSources = new Map(activeLibrarySources);
+    addedSources.forEach((source) => combinedSources.set(source.name, source));
+    const sources = [...combinedSources.values()];
+    cslLibrary = createLibraryFromSources(sources);
+    activeLibrarySources = combinedSources;
+    knownKeys = new Set(cslLibrary.keys);
+    const rememberedHashes = new Map(rememberedLibrarySources.map(({ name, hash }) => [name, hash]));
+    const changedSources = sources
+      .filter(({ name, hash }) => rememberedHashes.has(name) && rememberedHashes.get(name) !== hash)
+      .map(({ name }) => name);
+    const names = sources.map(({ name }) => name).join(', ');
+    $('library-status').textContent = `${sources.length} file${sources.length === 1 ? '' : 's'}: ${names}. ${cslLibrary.size} unique entries parsed as BibLaTeX/CSL.`;
+    $('refresh-bibliography').disabled = !officeReady;
+    $('format-bibliography').disabled = !officeReady;
+    $('show-formatted-citations').disabled = !officeReady;
+    $('clear-bibliographies').disabled = false;
+    let persisted = false;
+    let persistenceWarning = '';
+    if (officeReady) {
+      try {
+        persisted = await persistLibrarySources(sources);
+        if (persisted) {
+          rememberedLibrarySources = sources.map(({ name, hash }) => ({ name, hash }));
+          $('reload-github-libraries').hidden = savedGithubUrls().length === 0;
+        }
+      } catch (error) {
+        persistenceWarning = ` Filenames could not be saved with the document: ${error.message || String(error)}`;
+      }
+    }
+    const changeWarning = changedSources.length
+      ? ` Warning: file contents changed since the document last used ${changedSources.join(', ')}.` : '';
+    setStatus(`${originMessage} Combined bibliography parsed in the add-in; no bibliography content uploaded.${persisted ? ' Source names and hashes were saved with the document.' : ''}${changeWarning}${persistenceWarning}`);
+    markWordBibliographyStale();
+    markFormattedCitationsStale();
+    renderSuggestions();
+    updatePreview();
+    if (documentCitationKeys.length) renderDocumentBibliography();
   }
 
   async function loadBibFiles(event) {
@@ -531,40 +581,7 @@
         const contents = await file.text();
         return { name: file.name, contents, hash: await sha256Hex(contents) };
       }));
-      const combinedSources = new Map(activeLibrarySources);
-      addedSources.forEach((source) => combinedSources.set(source.name, source));
-      const sources = [...combinedSources.values()];
-      cslLibrary = createLibraryFromSources(sources);
-      activeLibrarySources = combinedSources;
-      knownKeys = new Set(cslLibrary.keys);
-      const rememberedHashes = new Map(rememberedLibrarySources.map(({ name, hash }) => [name, hash]));
-      const changedSources = sources
-        .filter(({ name, hash }) => rememberedHashes.has(name) && rememberedHashes.get(name) !== hash)
-        .map(({ name }) => name);
-      const names = sources.map(({ name }) => name).join(', ');
-      $('library-status').textContent = `${sources.length} file${sources.length === 1 ? '' : 's'}: ${names}. ${cslLibrary.size} unique entries parsed as BibLaTeX/CSL.`;
-      $('refresh-bibliography').disabled = !officeReady;
-      $('format-bibliography').disabled = !officeReady;
-      $('show-formatted-citations').disabled = !officeReady;
-      $('clear-bibliographies').disabled = false;
-      let persisted = false;
-      let persistenceWarning = '';
-      if (officeReady) {
-        try {
-          persisted = await persistLibrarySources(sources);
-          rememberedLibrarySources = sources.map(({ name, hash }) => ({ name, hash }));
-        } catch (error) {
-          persistenceWarning = ` Filenames could not be saved with the document: ${error.message || String(error)}`;
-        }
-      }
-      const changeWarning = changedSources.length
-        ? ` Warning: file contents changed since the document last used ${changedSources.join(', ')}.` : '';
-      setStatus(`Combined bibliography parsed locally; no file data uploaded.${persisted ? ' Filenames were saved with the document.' : ''}${changeWarning}${persistenceWarning}`);
-      markWordBibliographyStale();
-      markFormattedCitationsStale();
-      renderSuggestions();
-      updatePreview();
-      if (documentCitationKeys.length) renderDocumentBibliography();
+      await addBibliographySources(addedSources, 'Selected files loaded.');
     } catch (error) {
       if (!cslLibrary) {
         knownKeys = null;
@@ -575,6 +592,113 @@
       setStatus('Could not combine the selected bibliographies: ' + (error.message || String(error)), true);
     } finally {
       event.target.value = '';
+    }
+  }
+
+  async function loadGithubBibliographies(urls, originMessage) {
+    const button = $('load-github-library');
+    const reloadButton = $('reload-github-libraries');
+    button.disabled = true;
+    reloadButton.disabled = true;
+    $('github-library-status').textContent = 'Reading public GitHub bibliography…';
+    try {
+      const addedSources = await Promise.all(urls.map(async (url) => {
+        const source = await fetchGithubBibliography(url);
+        return { ...source, hash: await sha256Hex(source.contents) };
+      }));
+      await addBibliographySources(addedSources, originMessage);
+      $('github-library-status').textContent = `${addedSources.length} GitHub file${addedSources.length === 1 ? '' : 's'} loaded. Use Load or refresh again after the repository changes.`;
+    } catch (error) {
+      const message = error.message || String(error);
+      $('github-library-status').textContent = `Could not load GitHub bibliography: ${message}`;
+      setStatus(`Could not load GitHub bibliography: ${message}`, true);
+    } finally {
+      button.disabled = false;
+      reloadButton.disabled = false;
+    }
+  }
+
+  function loadGithubBibliography() {
+    const value = $('github-bib-url').value.trim();
+    if (value) loadGithubBibliographies([value], 'GitHub bibliography loaded.');
+    else $('github-library-status').textContent = 'Enter a public GitHub .bib or .bibtex file link.';
+  }
+
+  function reloadSavedGithubBibliographies() {
+    const urls = savedGithubUrls();
+    if (urls.length) loadGithubBibliographies(urls, 'Saved GitHub bibliographies reloaded.');
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function refreshSharedBibliographyList() {
+    const refreshButton = $('refresh-shared-libraries');
+    const selector = $('shared-bib-files');
+    const loadButton = $('load-shared-libraries');
+    refreshButton.disabled = true;
+    $('shared-library-status').textContent = 'Checking the configured synced folder…';
+    try {
+      const response = await fetch('/api/shared-bibliographies', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`The local server returned HTTP ${response.status}.`);
+      const result = await response.json();
+      selector.replaceChildren();
+      selector.hidden = true;
+      selector.disabled = true;
+      loadButton.disabled = true;
+      if (!result.configured) {
+        $('shared-library-status').textContent = 'No synced folder is configured. Restart the server with BIBDOCQMD_LIBRARY_DIR set to the local SharePoint folder.';
+        return;
+      }
+      result.files.forEach((file) => {
+        const option = document.createElement('option');
+        option.value = file.name;
+        option.textContent = `${file.name} — ${formatFileSize(file.size)}`;
+        selector.appendChild(option);
+      });
+      if (!result.files.length) {
+        $('shared-library-status').textContent = `No .bib files were found in the synced folder “${result.folder}”.`;
+        return;
+      }
+      selector.hidden = false;
+      selector.disabled = false;
+      if (result.files.length === 1) selector.options[0].selected = true;
+      loadButton.disabled = selector.selectedOptions.length === 0;
+      $('shared-library-status').textContent = `${result.files.length} bibliography file${result.files.length === 1 ? '' : 's'} found in “${result.folder}”. Select one or more, then load them.`;
+    } catch (error) {
+      $('shared-library-status').textContent = 'Could not list the synced bibliographies: '
+        + (error.message || String(error));
+    } finally {
+      refreshButton.disabled = false;
+    }
+  }
+
+  async function loadSharedBibliographies() {
+    const selector = $('shared-bib-files');
+    const names = [...selector.selectedOptions].map(({ value }) => value);
+    if (!names.length) return;
+    const loadButton = $('load-shared-libraries');
+    loadButton.disabled = true;
+    $('shared-library-status').textContent = 'Reading the selected synced bibliographies…';
+    try {
+      const addedSources = await Promise.all(names.map(async (name) => {
+        const query = new URLSearchParams({ name });
+        const response = await fetch(`/api/shared-bibliographies/file?${query}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`${name}: the local server returned HTTP ${response.status}.`);
+        const contents = await response.text();
+        return { name, contents, hash: await sha256Hex(contents) };
+      }));
+      await addBibliographySources(addedSources, 'Synced SharePoint bibliographies loaded.');
+      $('shared-library-status').textContent = `${names.length} selected file${names.length === 1 ? '' : 's'} loaded. Choose Load or refresh selected again after the synced files change.`;
+    } catch (error) {
+      $('shared-library-status').textContent = 'Could not load the selected synced bibliographies: '
+        + (error.message || String(error));
+      setStatus('Could not combine the selected bibliographies: ' + (error.message || String(error)), true);
+    } finally {
+      loadButton.disabled = selector.selectedOptions.length === 0;
     }
   }
 
@@ -589,6 +713,7 @@
     $('show-formatted-citations').disabled = true;
     $('library-status').textContent = 'No libraries selected. You can still enter a citation key manually.';
     rememberedLibrarySources = [];
+    $('reload-github-libraries').hidden = true;
     let warning = '';
     if (officeReady) {
       try {
@@ -809,7 +934,7 @@
         selected = { id: control.id, tag: control.tag, text: control.text, title: control.title };
       });
       if (!selected.tag.startsWith('bibword:cite:v1:')) {
-        throw new Error('The selected content control is not a BibWord citation.');
+        throw new Error('The selected content control is not a bibdocqmd citation.');
       }
       const { source, parsed } = parseCitationControl(selected);
       $('citation-keys').value = parsed.keys.join('; ');
@@ -823,8 +948,8 @@
     } catch (error) {
       selectedControlId = null;
       $('update-selected').disabled = true;
-      $('editing-status').textContent = 'To edit, place the cursor inside a BibWord citation and load it.';
-      setStatus('Could not load the selected BibWord citation: '
+      $('editing-status').textContent = 'To edit, place the cursor inside a bibdocqmd citation and load it.';
+      setStatus('Could not load the selected bibdocqmd citation: '
         + (error.message || String(error)), true);
     }
   }
@@ -839,7 +964,7 @@
   }
 
   async function updateSelectedCitation() {
-    if (selectedControlId === null) return setStatus('Load a selected BibWord citation first.', true);
+    if (selectedControlId === null) return setStatus('Load a selected bibdocqmd citation first.', true);
     let syntax;
     try {
       syntax = validatedSyntax();
@@ -874,7 +999,7 @@
         await context.sync();
       });
       $('editing-status').textContent = `Editing ${syntax}`;
-      setStatus('Selected citation updated without changing its BibWord identity.');
+      setStatus('Selected citation updated without changing its bibdocqmd identity.');
       markWordBibliographyStale();
     } catch (error) {
       setStatus('Word update failed: ' + (error.message || String(error)), true);
@@ -941,7 +1066,7 @@
         paragraph.styleBuiltIn = `Heading${bibliographyHeadingLevel(scope)}`;
         const control = paragraph.insertContentControl();
         control.tag = bibliographyTag(uniqueId(), styleId, scope);
-        control.title = 'BibWord bibliography position';
+        control.title = 'bibdocqmd bibliography position';
         const exitParagraph = control.insertParagraph('', Word.InsertLocation.after);
         exitParagraph.styleBuiltIn = 'Normal';
         exitParagraph.select(Word.SelectionMode.start);
@@ -999,7 +1124,7 @@
           const title = marker.text.split(/[\r\n]+/)[0].trim() || plan.title;
           const bibliography = cslLibrary.formatBibliographyHtml(plan.keys, styleId);
           marker.tag = bibliographyTag(metadata.id, styleId, metadata.scope);
-          marker.title = 'BibWord bibliography position and generated references';
+          marker.title = 'bibdocqmd bibliography position and generated references';
           marker.insertHtml(wordBibliographyHtml(
             title, bibliography, bibliographyHeadingLevel(metadata.scope),
           ), Word.InsertLocation.replace);
@@ -1030,6 +1155,13 @@
   }
 
   $('bib-file').addEventListener('change', loadBibFiles);
+  $('refresh-shared-libraries').addEventListener('click', refreshSharedBibliographyList);
+  $('load-github-library').addEventListener('click', loadGithubBibliography);
+  $('reload-github-libraries').addEventListener('click', reloadSavedGithubBibliographies);
+  $('shared-bib-files').addEventListener('change', () => {
+    $('load-shared-libraries').disabled = $('shared-bib-files').selectedOptions.length === 0;
+  });
+  $('load-shared-libraries').addEventListener('click', loadSharedBibliographies);
   $('clear-bibliographies').addEventListener('click', clearBibliographies);
   $('csl-file').addEventListener('change', loadCslFile);
   $('citation-keys').addEventListener('input', () => {

@@ -101,7 +101,7 @@ test('fails explicitly for unresolved keys and unsupported styles', () => {
 });
 
 test('registers an independent custom CSL style under a stable content identity', async () => {
-  const xml = await readFile(new URL('../src/bibword/styles/apa.csl', import.meta.url), 'utf8');
+  const xml = await readFile(new URL('../src/bibdocqmd/styles/apa.csl', import.meta.url), 'utf8');
   const first = await customStyleIdentity(xml);
   const second = await customStyleIdentity(xml);
   assert.match(first.id, /^custom-[0-9a-f]{12}$/);

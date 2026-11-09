@@ -38,7 +38,7 @@ test('parses editable citation syntax back into task-pane fields', () => {
   assert.deepEqual(parseCitationSyntax('[-@jones2022, ch. 2]'), {
     keys: ['jones2022'], mode: 'suppress', locator: 'ch. 2',
   });
-  assert.throws(() => parseCitationSyntax('ordinary text'), /supported BibWord/);
+  assert.throws(() => parseCitationSyntax('ordinary text'), /supported bibdocqmd/);
 });
 
 test('builds a local author-year preview and formatted reference', () => {
@@ -143,7 +143,7 @@ test('retains canonical citation syntax while controls show formatted text', () 
   assert.equal(citationSyntaxFromControl({ text: ' @smith2020 ', title: 'BibWord citation' }),
     '@smith2020');
   assert.throws(() => citationSourceFromTitle('BibWord citation source v1: not a citation'),
-    /supported BibWord/);
+    /supported bibdocqmd/);
 });
 
 test('versions bibliography tags and preserves legacy marker identities', () => {

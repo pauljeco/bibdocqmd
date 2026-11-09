@@ -1,2 +1,3 @@
-"""BibWord: exploratory Quarto-native Word citations, proof of concept v0.1."""
-__version__ = '0.1.0'
+"""Compatibility import for the former BibWord Python package."""
+
+from bibdocqmd import *  # noqa: F401,F403

@@ -197,7 +197,7 @@
       return { keys: [narrative[1]], mode: 'narrative', locator: (narrative[2] || '').trim() };
     }
     if (!text.startsWith('[') || !text.endsWith(']')) {
-      throw new Error('Selected control does not contain supported BibWord citation syntax.');
+      throw new Error('Selected control does not contain supported bibdocqmd citation syntax.');
     }
     const parts = text.slice(1, -1).split(';').map((part) => part.trim()).filter(Boolean);
     if (!parts.length) throw new Error('Selected citation has no keys.');

@@ -5,13 +5,13 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>2dded7c2-e17a-4533-b191-2c4aafbb9d24</Id>
-  <Version>1.0.0.2</Version>
-  <ProviderName>BibWord</ProviderName>
+  <Version>1.0.0.3</Version>
+  <ProviderName>bibdocqmd</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="BibWord hosted pilot"/>
+  <DisplayName DefaultValue="bibdocqmd hosted pilot"/>
   <Description DefaultValue="Insert Quarto syntax citations from BibTeX into Word."/>
-  <IconUrl DefaultValue="https://pauljeco.github.io/BibWord/icon-32.png"/>
-  <SupportUrl DefaultValue="https://pauljeco.github.io/BibWord/support.html"/>
+  <IconUrl DefaultValue="https://pauljeco.github.io/bibdocqmd/icon-32.png"/>
+  <SupportUrl DefaultValue="https://pauljeco.github.io/bibdocqmd/support.html"/>
   <Hosts>
     <Host Name="Document"/>
   </Hosts>
@@ -21,7 +21,7 @@
     </Sets>
   </Requirements>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://pauljeco.github.io/BibWord/taskpane.html"/>
+    <SourceLocation DefaultValue="https://pauljeco.github.io/bibdocqmd/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
@@ -68,23 +68,23 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="BibWord.Icon16" DefaultValue="https://pauljeco.github.io/BibWord/icon-16.png"/>
-        <bt:Image id="BibWord.Icon32" DefaultValue="https://pauljeco.github.io/BibWord/icon-32.png"/>
-        <bt:Image id="BibWord.Icon80" DefaultValue="https://pauljeco.github.io/BibWord/icon-80.png"/>
+        <bt:Image id="BibWord.Icon16" DefaultValue="https://pauljeco.github.io/bibdocqmd/icon-16.png"/>
+        <bt:Image id="BibWord.Icon32" DefaultValue="https://pauljeco.github.io/bibdocqmd/icon-32.png"/>
+        <bt:Image id="BibWord.Icon80" DefaultValue="https://pauljeco.github.io/bibdocqmd/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="BibWord.Commands.Url" DefaultValue="https://pauljeco.github.io/BibWord/commands.html"/>
-        <bt:Url id="BibWord.Taskpane.Url" DefaultValue="https://pauljeco.github.io/BibWord/taskpane.html"/>
-        <bt:Url id="BibWord.GetStarted.LearnMoreUrl" DefaultValue="https://pauljeco.github.io/BibWord/support.html"/>
+        <bt:Url id="BibWord.Commands.Url" DefaultValue="https://pauljeco.github.io/bibdocqmd/commands.html"/>
+        <bt:Url id="BibWord.Taskpane.Url" DefaultValue="https://pauljeco.github.io/bibdocqmd/taskpane.html"/>
+        <bt:Url id="BibWord.GetStarted.LearnMoreUrl" DefaultValue="https://pauljeco.github.io/bibdocqmd/support.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="BibWord.CommandsGroup.Label" DefaultValue="BibWord"/>
-        <bt:String id="BibWord.OpenTaskpaneButton.Label" DefaultValue="Open BibWord"/>
-        <bt:String id="BibWord.GetStarted.Title" DefaultValue="BibWord is ready"/>
+        <bt:String id="BibWord.CommandsGroup.Label" DefaultValue="bibdocqmd"/>
+        <bt:String id="BibWord.OpenTaskpaneButton.Label" DefaultValue="Open bibdocqmd"/>
+        <bt:String id="BibWord.GetStarted.Title" DefaultValue="bibdocqmd is ready"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="BibWord.Open.Tooltip" DefaultValue="Open BibWord to insert, edit, and format citations and bibliographies."/>
-        <bt:String id="BibWord.GetStarted.Description" DefaultValue="Open the Home tab and choose Open BibWord to start working with citations."/>
+        <bt:String id="BibWord.Open.Tooltip" DefaultValue="Open bibdocqmd to insert, edit, and format citations and bibliographies."/>
+        <bt:String id="BibWord.GetStarted.Description" DefaultValue="Open the Home tab and choose Open bibdocqmd to start working with citations."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

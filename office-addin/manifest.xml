@@ -6,9 +6,9 @@
            xsi:type="TaskPaneApp">
   <Id>2dded7c2-e17a-4533-b191-2c4aafbb9d24</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>BibWord Prototype</ProviderName>
+  <ProviderName>bibdocqmd Prototype</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="BibWord Prototype"/>
+  <DisplayName DefaultValue="bibdocqmd Prototype"/>
   <Description DefaultValue="Insert Quarto syntax citations from BibTeX into Word."/>
   <IconUrl DefaultValue="https://localhost:3000/icon-32.png"/>
   <SupportUrl DefaultValue="https://localhost:3000/support.html"/>
@@ -78,13 +78,13 @@
         <bt:Url id="BibWord.GetStarted.LearnMoreUrl" DefaultValue="https://localhost:3000/support.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="BibWord.CommandsGroup.Label" DefaultValue="BibWord"/>
-        <bt:String id="BibWord.OpenTaskpaneButton.Label" DefaultValue="Open BibWord"/>
-        <bt:String id="BibWord.GetStarted.Title" DefaultValue="BibWord is ready"/>
+        <bt:String id="BibWord.CommandsGroup.Label" DefaultValue="bibdocqmd"/>
+        <bt:String id="BibWord.OpenTaskpaneButton.Label" DefaultValue="Open bibdocqmd"/>
+        <bt:String id="BibWord.GetStarted.Title" DefaultValue="bibdocqmd is ready"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="BibWord.Open.Tooltip" DefaultValue="Open BibWord to insert, edit, and format citations and bibliographies."/>
-        <bt:String id="BibWord.GetStarted.Description" DefaultValue="Open the Home tab and choose Open BibWord to start working with citations."/>
+        <bt:String id="BibWord.Open.Tooltip" DefaultValue="Open bibdocqmd to insert, edit, and format citations and bibliographies."/>
+        <bt:String id="BibWord.GetStarted.Description" DefaultValue="Open the Home tab and choose Open bibdocqmd to start working with citations."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

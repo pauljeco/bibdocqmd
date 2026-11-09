@@ -3,7 +3,7 @@ requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bibword"
+name = "bibdocqmd"
 version = "0.1.0"
 description = "Quarto-native citation management for Microsoft Word"
 readme = "README.md"
@@ -20,13 +20,14 @@ dev = [
 ]
 
 [project.scripts]
-bibword-export = "bibword.export:main"
+bibdocqmd-export = "bibdocqmd.export:main"
+bibword-export = "bibdocqmd.export:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-bibword = ["styles/*.csl", "filters/*.lua"]
+bibdocqmd = ["styles/*.csl", "filters/*.lua"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

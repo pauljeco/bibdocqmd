@@ -1,4 +1,4 @@
--- BibWord scoped bibliography renderer.
+-- bibdocqmd scoped bibliography renderer.
 --
 -- Each bibword-bibliography Div is populated from citations in either the
 -- whole document or its containing Heading 1, 2, or 3 section. Citeproc is
@@ -7,7 +7,7 @@
 -- additional global bibliography.
 
 local function fail(message)
-  error('BibWord multiple bibliographies: ' .. message)
+  error('bibdocqmd multiple bibliographies: ' .. message)
 end
 
 local function has_class(element, class_name)

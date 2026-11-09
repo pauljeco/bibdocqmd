@@ -14,16 +14,21 @@ from lxml import etree
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from bibword.export import (
+from bibdocqmd.export import (
     CitationError, bibliography_metadata_from_tag, bibliography_style_from_tag,
     citation_ast, export_docx,
     embedded_csl_styles, extract_tagged_controls, materialize_csl_style,
     materialize_multiple_bibliographies_filter, materialize_reference_docx,
     validate_csl_style,
 )
+from bibword.export import export_docx as legacy_export_docx
 
 DOCX = ROOT / 'examples' / 'bibword_demo.docx'
 BIB = ROOT / 'examples' / 'references.bib'
+
+
+def test_legacy_python_import_uses_current_exporter():
+    assert legacy_export_docx is export_docx
 
 
 @pytest.mark.parametrize('syntax,mode,keys', [
@@ -82,8 +87,8 @@ def test_docx_to_quarto_citations_and_structure(tmp_path):
     assert 'Word feature' in text
     assert 'First tested conversion' in text
     assert 'BIBWORDCIT' not in text
-    assert 'reference-doc: "bibword-reference-' in text
-    reference_docs = list(tmp_path.glob('bibword-reference-*.docx'))
+    assert 'reference-doc: "bibdocqmd-reference-' in text
+    reference_docs = list(tmp_path.glob('bibdocqmd-reference-*.docx'))
     assert len(reference_docs) == 1
 
     result = subprocess.run(['pandoc', '-f', 'markdown+citations', '-t', 'json', str(out)],
@@ -206,9 +211,9 @@ def test_bibliography_marker_controls_reference_position(tmp_path):
     assert text.index('::: {#refs}') < text.index('# Content after references')
     assert 'Generated reference that must not be exported' not in text
     assert 'csl:' in text
-    assert 'bibword-apa.csl' in text
-    assert (tmp_path / 'bibword-apa.csl').is_file()
-    assert 'reference-doc: "bibword-reference-' in text
+    assert 'bibdocqmd-apa.csl' in text
+    assert (tmp_path / 'bibdocqmd-apa.csl').is_file()
+    assert 'reference-doc: "bibdocqmd-reference-' in text
 
 
 def test_multiple_heading_scoped_bibliographies_export_and_render(tmp_path):
@@ -267,8 +272,8 @@ def test_multiple_heading_scoped_bibliographies_export_and_render(tmp_path):
     assert 'bibword-refs-chapter-two' in qmd
     assert 'data-bibword-scope="heading1"' in qmd
     assert 'citeproc: false' in qmd
-    assert 'bibword-multiple-bibliographies.lua' in qmd
-    filter_path = tmp_path / 'bibword-multiple-bibliographies.lua'
+    assert 'bibdocqmd-multiple-bibliographies.lua' in qmd
+    filter_path = tmp_path / 'bibdocqmd-multiple-bibliographies.lua'
     assert filter_path.is_file()
 
     rendered = subprocess.run([
@@ -296,7 +301,7 @@ def test_scoped_filter_is_not_silently_overwritten(tmp_path):
 
 def test_generated_reference_docx_has_hanging_bibliography_style(tmp_path):
     target = materialize_reference_docx(tmp_path)
-    assert target.name.startswith('bibword-reference-')
+    assert target.name.startswith('bibdocqmd-reference-')
     assert target.suffix == '.docx'
 
     with zipfile.ZipFile(target) as archive:
@@ -449,7 +454,7 @@ def custom_style_docx(source: Path, destination: Path, style: bytes,
 
 
 def test_embedded_custom_csl_style_round_trips_to_export(tmp_path):
-    style = (ROOT / 'src/bibword/styles/apa.csl').read_bytes()
+    style = (ROOT / 'src/bibdocqmd/styles/apa.csl').read_bytes()
     source = tmp_path / 'custom-style.docx'
     style_id = custom_style_docx(DOCX, source, style)
 
@@ -458,12 +463,12 @@ def test_embedded_custom_csl_style_round_trips_to_export(tmp_path):
     output = tmp_path / 'custom-style.qmd'
     assert export_docx(source, output, BIB) == 5
     text = output.read_text(encoding='utf-8')
-    assert f'csl: "bibword-{style_id}.csl"' in text
-    assert (tmp_path / f'bibword-{style_id}.csl').read_bytes() == style
+    assert f'csl: "bibdocqmd-{style_id}.csl"' in text
+    assert (tmp_path / f'bibdocqmd-{style_id}.csl').read_bytes() == style
 
 
 def test_embedded_custom_csl_style_integrity_failure_is_explicit(tmp_path):
-    style = (ROOT / 'src/bibword/styles/apa.csl').read_bytes()
+    style = (ROOT / 'src/bibdocqmd/styles/apa.csl').read_bytes()
     source = tmp_path / 'tampered-style.docx'
     custom_style_docx(DOCX, source, style, stored_hash='0' * 64)
     with pytest.raises(CitationError, match='integrity check'):
@@ -472,7 +477,7 @@ def test_embedded_custom_csl_style_integrity_failure_is_explicit(tmp_path):
 
 def test_bundled_style_copy_does_not_overwrite_different_content(tmp_path):
     target = materialize_csl_style('apa', tmp_path)
-    assert target.name == 'bibword-apa.csl'
+    assert target.name == 'bibdocqmd-apa.csl'
     assert '<title>APA Style 7th edition</title>' in target.read_text(encoding='utf-8')
     target.write_text('user-owned style', encoding='utf-8')
     with pytest.raises(CitationError, match='Refusing to overwrite'):
@@ -483,5 +488,5 @@ def test_invalid_docx_without_managed_citations(tmp_path):
     from docx import Document
     plain = tmp_path / 'plain.docx'
     Document().save(plain)
-    with pytest.raises(CitationError, match='No BibWord'):
+    with pytest.raises(CitationError, match='No bibdocqmd'):
         export_docx(plain, tmp_path / 'plain.qmd', BIB)

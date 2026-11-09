@@ -1,4 +1,4 @@
-# BibWord development instructions
+# bibdocqmd development instructions
 
 These instructions apply to the entire repository.
 

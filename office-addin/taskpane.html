@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BibWord prototype</title>
+  <title>bibdocqmd prototype</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main>
     <header>
-      <div class="eyebrow">BIBWORD / PROTOTYPE v0.1</div>
+      <div class="eyebrow">bibdocqmd / PROTOTYPE v0.1</div>
       <h1>Quarto citations in Word</h1>
       <p>Edit <code>@citationKeys</code> directly, then switch to formatted citations when you want a reading view.</p>
     </header>
@@ -18,13 +18,29 @@
       <h2 id="library-heading">1. Select BibTeX libraries</h2>
       <label for="bib-file">Add one or more <code>.bib</code> files</label>
       <input id="bib-file" type="file" accept=".bib,.bibtex,text/plain" multiple />
+      <div class="shared-library-picker">
+        <label for="github-bib-url">From a public GitHub file</label>
+        <input id="github-bib-url" type="url" inputmode="url" autocomplete="url"
+               placeholder="https://github.com/owner/repo/blob/main/references.bib" />
+        <button id="load-github-library" class="secondary" type="button">Load or refresh GitHub file</button>
+        <button id="reload-github-libraries" class="secondary" type="button" hidden>Reload saved GitHub files</button>
+        <small id="github-library-status">Use a public GitHub .bib or .bibtex file link. The file is read directly in this pane.</small>
+      </div>
+      <div class="shared-library-picker">
+        <div class="source-label">From a SharePoint-synced folder</div>
+        <button id="refresh-shared-libraries" class="secondary" type="button">Browse synced SharePoint</button>
+        <label for="shared-bib-files" class="visually-hidden">Available synced bibliography files</label>
+        <select id="shared-bib-files" multiple size="4" disabled hidden></select>
+        <button id="load-shared-libraries" class="secondary" type="button" disabled>Load or refresh selected</button>
+        <small id="shared-library-status">Requires the development server to be started with <code>BIBDOCQMD_LIBRARY_DIR</code>.</small>
+      </div>
       <button id="clear-bibliographies" class="secondary library-clear" type="button" disabled>Clear libraries</button>
       <small id="library-status">No libraries selected. You can still enter a citation key manually.</small>
     </section>
     <section aria-labelledby="citation-heading">
       <h2 id="citation-heading">2. Insert or edit a citation</h2>
       <button id="load-selected" class="secondary" type="button" disabled>Load selected citation</button>
-      <small id="editing-status">To edit, place the cursor inside a BibWord citation and load it.</small>
+      <small id="editing-status">To edit, place the cursor inside a bibdocqmd citation and load it.</small>
       <label for="citation-keys">Citation keys</label>
       <div class="key-picker">
         <input id="citation-keys" autocomplete="off" spellcheck="false"
@@ -66,7 +82,7 @@
     </section>
     <section aria-labelledby="citation-display-heading">
       <h2 id="citation-display-heading">3. Choose the document citation display</h2>
-      <p class="section-copy">Switch every managed citation between editable Quarto keys and CSL-formatted text. BibWord stores the canonical syntax with a formatted control so export and later editing keep the citation identity.</p>
+      <p class="section-copy">Switch every managed citation between editable Quarto keys and CSL-formatted text. bibdocqmd stores the canonical syntax with a formatted control so export and later editing keep the citation identity.</p>
       <div class="button-grid">
         <button id="show-citation-keys" class="secondary" type="button" disabled>Show editable keys</button>
         <button id="show-formatted-citations" type="button" disabled>Show formatted citations</button>
@@ -105,6 +121,7 @@
   </main>
   <script src="dist/csl-engine.js"></script>
   <script src="citation.js"></script>
+  <script src="github-library.js"></script>
   <script src="taskpane.js"></script>
 </body>
 </html>

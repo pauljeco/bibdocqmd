@@ -1,8 +1,8 @@
 {
-  "name": "bibword-office-addin",
+  "name": "bibdocqmd-office-addin",
   "private": true,
   "version": "0.1.0",
-  "description": "Minimal experimental Word/Word web task-pane for BibWord",
+  "description": "Minimal experimental Word/Word web task-pane for bibdocqmd",
   "scripts": {
     "build": "node build-csl.mjs",
     "dev": "node dev-server.mjs",
@@ -10,7 +10,7 @@
     "cert:verify": "office-addin-dev-certs verify",
     "pretest": "npm run build",
     "test": "node --test",
-    "lint": "node --check citation.js && node --check taskpane.js && node --check csl-engine.mjs && node --check build-csl.mjs && node --check browser-fetch-shim.mjs && node --check server-path.mjs && node --check dev-server.mjs",
+    "lint": "node --check citation.js && node --check github-library.js && node --check taskpane.js && node --check csl-engine.mjs && node --check build-csl.mjs && node --check browser-fetch-shim.mjs && node --check server-path.mjs && node --check shared-library.mjs && node --check dev-server.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "check": "npm run lint && npm test && npm run validate"
   },

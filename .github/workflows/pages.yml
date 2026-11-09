@@ -1,4 +1,4 @@
-name: Deploy hosted BibWord pilot
+name: Deploy hosted bibdocqmd pilot
 
 on:
   push:
@@ -49,6 +49,7 @@ jobs:
           cp office-addin/style.css _site/style.css
           cp office-addin/taskpane.js _site/taskpane.js
           cp office-addin/citation.js _site/citation.js
+          cp office-addin/github-library.js _site/github-library.js
           cp office-addin/icon-16.png _site/icon-16.png
           cp office-addin/icon-32.png _site/icon-32.png
           cp office-addin/icon-80.png _site/icon-80.png
