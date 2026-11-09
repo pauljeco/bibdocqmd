@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const {
   activeKeyFragment, bibliographyTag, citationKeysFromControls, citationSyntax,
   citationKeysForBibliographyScope,
-  citationSourceFromTitle, citationSourceTitle, citationSyntaxFromControl,
+  CITATION_TITLE, citationSourceFromTitle, citationSourceTitle, citationSyntaxFromControl,
   formatCitationPreview, formatReference, parseBibEntries, parseBibliographyTag,
   parseCitationControl, parseCitationSyntax, parseKeys, replaceActiveKey, suggestKeys,
 } = require('./citation.js');
@@ -136,12 +136,16 @@ test('identifies the malformed citation control and explains trailing punctuatio
 });
 
 test('retains canonical citation syntax while controls show formatted text', () => {
+  assert.equal(CITATION_TITLE, 'bibdocqmd citation');
   const title = citationSourceTitle('[@smith2020; @jones2022, p. 4]');
+  assert.equal(title, 'bibdocqmd citation source v1: [@smith2020; @jones2022, p. 4]');
   assert.equal(citationSourceFromTitle(title), '[@smith2020; @jones2022, p. 4]');
   assert.equal(citationSyntaxFromControl({ text: '(Smith, 2020; Jones, 2022, p. 4)', title }),
     '[@smith2020; @jones2022, p. 4]');
   assert.equal(citationSyntaxFromControl({ text: ' @smith2020 ', title: 'BibWord citation' }),
     '@smith2020');
+  assert.equal(citationSourceFromTitle('BibWord citation source v1: [@smith2020]'),
+    '[@smith2020]');
   assert.throws(() => citationSourceFromTitle('BibWord citation source v1: not a citation'),
     /supported bibdocqmd/);
 });

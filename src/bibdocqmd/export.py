@@ -26,7 +26,11 @@ from lxml import etree
 NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 W = '{' + NS['w'] + '}'
 CITATION_TAG_PREFIX = 'bibword:cite:v1:'
-CITATION_SOURCE_ALIAS_PREFIX = 'BibWord citation source v1: '
+CITATION_SOURCE_ALIAS_PREFIX = 'bibdocqmd citation source v1: '
+LEGACY_CITATION_SOURCE_ALIAS_PREFIX = 'BibWord citation source v1: '
+CITATION_SOURCE_ALIAS_PREFIXES = (
+    CITATION_SOURCE_ALIAS_PREFIX, LEGACY_CITATION_SOURCE_ALIAS_PREFIX,
+)
 BIBLIOGRAPHY_TAG_PREFIX = 'bibword:refs:'
 BIBLIOGRAPHY_TAG_V1_PREFIX = 'bibword:refs:v1:'
 BIBLIOGRAPHY_TAG_V2_PREFIX = 'bibword:refs:v2:'
@@ -312,9 +316,11 @@ def extract_tagged_controls(docx: Path) -> tuple[bytes, dict[str, dict]]:
             visible_text = ''.join(texts).strip()
             alias = control.find(f'{W}sdtPr/{W}alias')
             alias_value = alias.get(W + 'val', '') if alias is not None else ''
-            citation_text = (alias_value.removeprefix(CITATION_SOURCE_ALIAS_PREFIX).strip()
-                             if alias_value.startswith(CITATION_SOURCE_ALIAS_PREFIX)
-                             else visible_text)
+            alias_prefix = next(
+                (prefix for prefix in CITATION_SOURCE_ALIAS_PREFIXES
+                 if alias_value.startswith(prefix)), None)
+            citation_text = (alias_value.removeprefix(alias_prefix).strip()
+                             if alias_prefix else visible_text)
             try:
                 ast = citation_ast(citation_text)
             except CitationError as exc:

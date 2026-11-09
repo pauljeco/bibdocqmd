@@ -330,15 +330,15 @@ def test_formatted_and_copied_controls_export_from_canonical_alias(tmp_path):
     from docx.oxml.ns import qn
 
     document = Document()
-    for visible, syntax in [
-        ('(Smith, 2020)', '[@smith2020]'),
-        ('Jones (2022)', '@jones2022'),
+    for visible, syntax, alias_prefix in [
+        ('(Smith, 2020)', '[@smith2020]', 'BibWord citation source v1: '),
+        ('Jones (2022)', '@jones2022', 'bibdocqmd citation source v1: '),
     ]:
         paragraph = document.add_paragraph('Statement ')
         citation = OxmlElement('w:sdt')
         properties = OxmlElement('w:sdtPr')
         alias = OxmlElement('w:alias')
-        alias.set(qn('w:val'), f'BibWord citation source v1: {syntax}')
+        alias.set(qn('w:val'), f'{alias_prefix}{syntax}')
         tag = OxmlElement('w:tag')
         # Copy/paste may duplicate the BibWord tag. Export is based on each
         # physical control and must not collapse or reject either citation.

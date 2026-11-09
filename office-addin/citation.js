@@ -6,8 +6,12 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   'use strict';
 
-  const CITATION_TITLE = 'BibWord citation';
-  const CITATION_SOURCE_TITLE_PREFIX = 'BibWord citation source v1: ';
+  const CITATION_TITLE = 'bibdocqmd citation';
+  const CITATION_SOURCE_TITLE_PREFIX = 'bibdocqmd citation source v1: ';
+  const LEGACY_CITATION_SOURCE_TITLE_PREFIX = 'BibWord citation source v1: ';
+  const CITATION_SOURCE_TITLE_PREFIXES = [
+    CITATION_SOURCE_TITLE_PREFIX, LEGACY_CITATION_SOURCE_TITLE_PREFIX,
+  ];
 
   function parseKeys(bibtex) {
     return new Set(parseBibEntries(bibtex).keys());
@@ -229,8 +233,9 @@
 
   function citationControlError(control, position, error) {
     const title = String(control.title || '');
-    const source = title.startsWith(CITATION_SOURCE_TITLE_PREFIX)
-      ? title.slice(CITATION_SOURCE_TITLE_PREFIX.length).trim()
+    const prefix = CITATION_SOURCE_TITLE_PREFIXES.find((candidate) => title.startsWith(candidate));
+    const source = prefix
+      ? title.slice(prefix.length).trim()
       : String(control.text || '').trim();
     const compact = source.replace(/\s+/g, ' ');
     const preview = compact.length > 100 ? `${compact.slice(0, 97)}...` : compact;
@@ -276,8 +281,9 @@
 
   function citationSourceFromTitle(title) {
     const value = String(title || '');
-    if (!value.startsWith(CITATION_SOURCE_TITLE_PREFIX)) return null;
-    const source = value.slice(CITATION_SOURCE_TITLE_PREFIX.length).trim();
+    const prefix = CITATION_SOURCE_TITLE_PREFIXES.find((candidate) => value.startsWith(candidate));
+    if (!prefix) return null;
+    const source = value.slice(prefix.length).trim();
     parseCitationSyntax(source);
     return source;
   }
