@@ -108,6 +108,9 @@
         <option value="heading2">Current Heading 2 section</option>
         <option value="heading3">Current Heading 3 subsection</option>
       </select>
+      <label for="bibliography-indent">Hanging indent (cm)</label>
+      <input id="bibliography-indent" type="number" min="0" max="5" step="0.01" value="1.27" aria-describedby="bibliography-indent-help">
+      <small id="bibliography-indent-help">First lines align with the left margin. Wrapped lines indent by this amount; use 0 for no indent. Applies to all markers when you choose Update in Word.</small>
       <div class="button-grid">
         <button id="insert-bibliography" type="button" disabled>Insert marker</button>
         <button id="format-bibliography" type="button" disabled>Update in Word</button>

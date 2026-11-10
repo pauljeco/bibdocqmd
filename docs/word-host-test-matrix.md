@@ -16,3 +16,50 @@ Real-host results are deliberately narrow. Do not generalize a successful test b
 | Pending | Word desktop | Windows 11 | Not tested | Not tested | Not tested | Not tested | Not tested | Test a current Microsoft 365 build |
 
 For each run, record the exact Word build, browser version, tenant/sideload method, document save path, and whether `word/document.xml` contains the expected `bibword:cite:v1:` tag.
+
+## Bibliography paragraph style regression (2026-11-10)
+
+A user testing Word on Windows reported a two-entry bibliography whose final
+entry had the blue, enlarged appearance of the References heading. The exact
+Word build and desktop/web host were not recorded; the screenshot alone does
+not establish the stored paragraph style. No downloaded DOCX was inspected.
+
+Bibliography updates now explicitly set the first paragraph inside each marker
+to the scope's heading style and all subsequent paragraphs to Normal after HTML
+import. Simulated Office.js regression tests cover heading inheritance, all four
+scopes, multiple markers, and repeated updates with a changed entry count. A
+follow-up user test reported that hanging indents were lost after the style
+change. Updates now explicitly apply a 36-point left indent and a -36-point
+first-line indent to entries after setting Normal. A further screenshot showed
+the first entry shifted right relative to the following entry. The pane now
+offers a hanging indent in cm (default 1.27, range 0–5, with 0 disabling it),
+applied to every marker by Update in Word. Bibliography HTML is flattened into
+sibling entry paragraphs, and native styles finish synchronizing before indents
+are applied. Every entry receives the same left and negative first-line indents,
+zero right indent, and left alignment. The title receives zero indents.
+
+Simulated tests use actual Citation.js HTML and check flat paragraph boundaries,
+inline italics/links, equal first-line positions, custom and zero indents, invalid
+input, all four scopes, and repeated updates. They also simulate style application
+clearing imported indents during synchronization. These tests do not establish
+real-host compatibility or rendered formatting fidelity.
+
+User-reported host result (2026-11-10): after the configurable-indent and
+first-entry alignment changes, the user confirmed that tests ran successfully in
+Microsoft Word, in the Windows testing context above. This records user
+confirmation of the bibliography changes; individual test cases and indent values
+were not specified. The exact Word version/build, Windows version, desktop/web
+host, browser/version (if applicable), and sideload method were not recorded.
+The user subsequently confirmed that closing and reopening the file, refreshing,
+and editing entries all succeeded in Microsoft Word. This is a user-reported
+real-host result; the save location/reopen path and the specific refresh/edit
+operations were not recorded. Downloaded-DOCX inspection and export were not
+reported for this run.
+
+Remaining detailed host validation: update a two-entry bibliography, confirm only its title
+appears in Word's Navigation pane, and verify title italics and hanging indents
+remain. Inspect the downloaded DOCX paragraph styles and citation/marker
+identities after the confirmed close/reopen, refresh, and editing workflow.
+Try 0, 0.75, and 1.27 cm, confirming that
+the first line of every reference starts at the same left margin and every
+wrapped line uses the selected indent. Record the host/build and save path.

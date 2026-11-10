@@ -57,11 +57,33 @@
   }
 
   function wordBibliographyHtml(title, bibliography, headingLevel = 1) {
-    const styled = bibliography
-      .replace('class="csl-bib-body"', 'class="csl-bib-body" style="margin:0;"')
-      .replace(/class="csl-entry"/g,
-        'class="csl-entry" style="margin-left:0.5in;text-indent:-0.5in;margin-bottom:0.12in;"');
+    // Flatten the known citeproc HTML div structure. A surrounding bibliography
+    // div with indented entry divs can give Word's first entry an extra offset.
+    // Each entry becomes a sibling paragraph; preserve inline CSL markup.
+    const closingTags = [];
+    const styled = bibliography.replace(/<\/?div\b[^>]*>/gi, (tag) => {
+      if (/^<\//.test(tag)) return closingTags.pop();
+      if (/\bclass="csl-bib-body"/.test(tag)) {
+        closingTags.push('');
+        return '';
+      }
+      if (/\bclass="csl-entry"/.test(tag)) {
+        closingTags.push('</p>');
+        return '<p class="csl-entry" style="margin:0;text-indent:0;margin-bottom:0.12in;">';
+      }
+      closingTags.push('</span> ');
+      return tag.replace(/^<div\b/i, '<span');
+    });
     return `<h${headingLevel}>${escapeHtml(title)}</h${headingLevel}>${styled}`;
+  }
+
+  function bibliographyIndentPoints() {
+    const value = $('bibliography-indent').value.trim();
+    const centimetres = Number(value);
+    if (!value || !Number.isFinite(centimetres) || centimetres < 0 || centimetres > 5) {
+      throw new Error('Enter a hanging indent between 0 and 5 cm.');
+    }
+    return centimetres * 72 / 2.54;
   }
 
   const wordNamespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -1083,6 +1105,7 @@
     if (!officeReady) return setStatus('Office.js is not ready. Open this pane inside Word.', true);
     if (!cslLibrary) return setStatus('Load a bibliography before formatting it in Word.', true);
     try {
+      const indentPoints = bibliographyIndentPoints();
       let referenceCount = 0;
       let bibliographyCount = 0;
       let addedExitParagraph = false;
@@ -1117,6 +1140,7 @@
           if (!style) throw new Error(`Custom CSL style ${styleId} is not loaded.`);
           await ensureCustomStylePart(context, style);
         }
+        const formattedBibliographies = [];
         markers.forEach((marker) => {
           const metadata = parseBibliographyTag(marker.tag);
           const plan = plans.get(metadata.id);
@@ -1128,6 +1152,9 @@
           marker.insertHtml(wordBibliographyHtml(
             title, bibliography, bibliographyHeadingLevel(metadata.scope),
           ), Word.InsertLocation.replace);
+          const paragraphs = marker.paragraphs;
+          paragraphs.load('items');
+          formattedBibliographies.push({ paragraphs, scope: metadata.scope });
           if (paragraphState && !paragraphState.markerHasFollowingParagraph.get(metadata.id)) {
             const exitParagraph = marker.insertParagraph('', Word.InsertLocation.after);
             exitParagraph.styleBuiltIn = 'Normal';
@@ -1135,6 +1162,25 @@
             addedExitParagraph = true;
           }
           referenceCount += plan.keys.length;
+        });
+        await context.sync();
+        // Guard against HTML replacement retaining the marker's old heading
+        // paragraph style on reference entries. Finish applying styles before
+        // setting direct paragraph formatting, which a style change can clear.
+        formattedBibliographies.forEach(({ paragraphs, scope }) => {
+          paragraphs.items.forEach((paragraph, index) => {
+            paragraph.styleBuiltIn = index === 0
+              ? `Heading${bibliographyHeadingLevel(scope)}` : 'Normal';
+          });
+        });
+        await context.sync();
+        formattedBibliographies.forEach(({ paragraphs }) => {
+          paragraphs.items.forEach((paragraph, index) => {
+            paragraph.leftIndent = index === 0 ? 0 : indentPoints;
+            paragraph.firstLineIndent = index === 0 || indentPoints === 0 ? 0 : -indentPoints;
+            paragraph.rightIndent = 0;
+            if (index > 0) paragraph.alignment = 'Left';
+          });
         });
         await context.sync();
         documentCitationKeys = citationKeysFromControls(
@@ -1193,6 +1239,7 @@
   $('show-citation-keys').addEventListener('click', () => setCitationDisplay('keys'));
   $('insert-bibliography').addEventListener('click', insertBibliographyMarker);
   $('format-bibliography').addEventListener('click', formatBibliographyInWord);
+  $('bibliography-indent').addEventListener('input', () => markWordBibliographyStale());
   $('refresh-bibliography').addEventListener('click', refreshDocumentBibliography);
   document.addEventListener('click', (event) => {
     if (!$('citation-keys').closest('.key-picker').contains(event.target)) hideSuggestions();
