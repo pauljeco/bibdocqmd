@@ -10,7 +10,7 @@
     "cert:verify": "office-addin-dev-certs verify",
     "pretest": "npm run build",
     "test": "node --test",
-    "lint": "node --check citation.js && node --check github-library.js && node --check taskpane.js && node --check csl-engine.mjs && node --check build-csl.mjs && node --check browser-fetch-shim.mjs && node --check server-path.mjs && node --check shared-library.mjs && node --check dev-server.mjs",
+    "lint": "node --check citation.js && node --check github-library.js && node --check file-picker.js && node --check file-picker-dialog.js && node --check taskpane.js && node --check csl-engine.mjs && node --check markdown-export.mjs && node --check markdown-export-browser.mjs && node --check build-csl.mjs && node --check browser-fetch-shim.mjs && node --check server-path.mjs && node --check shared-library.mjs && node --check dev-server.mjs",
     "validate": "office-addin-manifest validate manifest.xml",
     "check": "npm run lint && npm test && npm run validate"
   },
@@ -18,6 +18,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@xmldom/xmldom": "0.9.12",
     "esbuild": "0.25.10",
     "office-addin-dev-certs": "^3.0.1",
     "office-addin-manifest": "^3.0.1"
@@ -25,6 +26,7 @@
   "dependencies": {
     "@citation-js/core": "0.8.2",
     "@citation-js/plugin-bibtex": "0.8.2",
-    "@citation-js/plugin-csl": "0.8.2"
+    "@citation-js/plugin-csl": "0.8.2",
+    "fflate": "0.8.3"
   }
 }

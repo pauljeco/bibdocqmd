@@ -1200,7 +1200,75 @@
     }
   }
 
+  function downloadExport(bytes, filename) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  async function runMarkdownExport(action) {
+    const status = $('quarto-export-status');
+    const prepareButton = $('prepare-markdown-export');
+    const finishButton = $('finish-markdown-export');
+    prepareButton.disabled = true;
+    finishButton.disabled = true;
+    status.className = '';
+    status.textContent = 'Processing locally…';
+    try {
+      if (action === 'prepare') {
+        const file = $('export-docx').files[0];
+        if (!file || !/\.docx$/i.test(file.name)) throw new Error('Choose your saved original DOCX file.');
+        if (!activeLibrarySources.size) throw new Error('Load the matching bibliography files first.');
+        if (file.size > 25_000_000) throw new Error('Choose a DOCX smaller than 25 MB.');
+        const bytes = await globalThis.BibWordMarkdown.prepareMarkdownExport(
+          new Uint8Array(await file.arrayBuffer()), {
+            sources: [...activeLibrarySources.values()], title: file.name.replace(/\.docx$/i, ''),
+            fallbackStyle: selectedStyle(),
+          });
+        downloadExport(bytes, 'bibdocqmd-preparation.zip');
+        status.textContent = 'Preparation ZIP ready. Extract it, open word-markdown-copy.docx in Word for the web, and export that copy as Markdown. Then select both files below.';
+      } else {
+        const preparation = $('export-preparation').files[0];
+        const markdown = $('export-markdown').files[0];
+        if (!preparation || !markdown || !/\.zip$/i.test(preparation.name) || !/\.(md|zip)$/i.test(markdown.name)) {
+          throw new Error('Choose the preparation ZIP and Word’s exported .md or media ZIP.');
+        }
+        if (preparation.size > 25_000_000 || markdown.size > 25_000_000) throw new Error('Choose files smaller than 25 MB.');
+        const bytes = await globalThis.BibWordMarkdown.finishMarkdownExport(
+          new Uint8Array(await preparation.arrayBuffer()), new Uint8Array(await markdown.arrayBuffer()),
+          { markdownZip: /\.zip$/i.test(markdown.name) });
+        downloadExport(bytes, 'bibdocqmd-quarto.zip');
+        status.textContent = 'QMD package ready. Extract it and render document.qmd with Quarto. Check formatting and keep any separately exported images alongside it.';
+      }
+    } catch (error) {
+      status.className = 'error';
+      status.textContent = 'Export failed: ' + (error.message || String(error));
+    } finally {
+      prepareButton.disabled = false;
+      finishButton.disabled = false;
+    }
+  }
+
+  function openLocalTools(event) {
+    if (typeof Office === 'undefined' || !Office.context?.ui?.openBrowserWindow) return;
+    try {
+      Office.context.ui.openBrowserWindow(event.currentTarget.href);
+      event.preventDefault();
+    } catch (error) {
+      // Keep the ordinary link usable when the Office API is unavailable.
+      setStatus('Could not open the browser through Word. Open or copy the local tools link manually. '
+        + (error.message || String(error)), true);
+    }
+  }
+
   $('bib-file').addEventListener('change', loadBibFiles);
+  $('prepare-markdown-export').addEventListener('click', () => runMarkdownExport('prepare'));
+  $('finish-markdown-export').addEventListener('click', () => runMarkdownExport('finish'));
   $('refresh-shared-libraries').addEventListener('click', refreshSharedBibliographyList);
   $('load-github-library').addEventListener('click', loadGithubBibliography);
   $('reload-github-libraries').addEventListener('click', reloadSavedGithubBibliographies);
@@ -1241,11 +1309,22 @@
   $('format-bibliography').addEventListener('click', formatBibliographyInWord);
   $('bibliography-indent').addEventListener('input', () => markWordBibliographyStale());
   $('refresh-bibliography').addEventListener('click', refreshDocumentBibliography);
+  globalThis.BibWordFilePicker.bindFilePickers(document);
+  document.querySelectorAll('[data-open-local-tools]').forEach((link) => {
+    link.addEventListener('click', openLocalTools);
+  });
   document.addEventListener('click', (event) => {
+    // Let file controls finish their default action without redrawing the pane.
+    if (event.target.closest('input[type="file"], [data-open-local-tools]')) return;
     if (!$('citation-keys').closest('.key-picker').contains(event.target)) hideSuggestions();
   });
   updatePreview();
-  if (typeof Office !== 'undefined') {
+  const browserMode = document.documentElement.dataset.localTools === 'true'
+    || (typeof location !== 'undefined' && /(?:[?&])browser=1(?:&|$)/.test(location.search));
+  if (browserMode) {
+    $('browser-mode-note').hidden = false;
+    setStatus('Local browser tools ready. Load bibliography files and use the export controls below. Return to Word for document editing.');
+  } else if (typeof Office !== 'undefined') {
     Office.onReady(async (info) => {
       if (info.host !== Office.HostType.Word) {
         setStatus('This prototype requires Microsoft Word.', true);

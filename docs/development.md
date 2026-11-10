@@ -23,6 +23,11 @@ This creates `.venv`, installs the exporter and its test dependencies, installs 
 
 The add-in test and development commands build `office-addin/dist/csl-engine.js` locally from the pinned Citation.js components. The generated bundle is intentionally ignored by Git.
 
+They also build `dist/markdown-export.js` and generate `local-tools.html` from the
+task-pane markup without the Office.js runtime. The generated page supports local
+file loading and Markdown/QMD export in a normal browser when the Word webview
+blocks file or download dialogs. It does not connect to or edit the Word document.
+
 To set up the parts independently:
 
 ```bash

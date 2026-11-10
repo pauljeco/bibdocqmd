@@ -60,6 +60,12 @@ quarto render exported.qmd --to docx
 
 ## Try the experimental Word add-in
 
+For colleagues using **Word for the web**, use the hosted pilot's install page
+and sample files; no local development setup is needed. The colleague onboarding
+page is `office-addin/pilot.html`, deployed as the site's `index.html`. See
+[the colleague pilot checklist](docs/colleague-pilot.md) before sharing a release.
+The commands below are for local development.
+
 The minimal task pane is deliberately dependency-light and does **not** use the JabRef GraphQL backend.
 
 1. Install Node.js 20 or newer, then run `make setup-addin` from the repository root.
@@ -77,6 +83,18 @@ The minimal task pane is deliberately dependency-light and does **not** use the 
 **Limitations:** browsers require a trusted HTTPS certificate and some Microsoft 365 tenants disallow sideloading. Word-for-the-web insertion, selected-citation editing, bibliography-marker insertion, bibliography generation, formatted/editable citation display, save/reopen persistence, citation copy/paste in both display modes, custom-style embedding, download, and export have been verified in one Ubuntu/Firefox/Microsoft 365 path. Coauthoring, Word desktop, and broad host compatibility remain pending real-host validation. The manifest passes Microsoft's automated validator, but that does not prove runtime compatibility. Citation.js provides local BibLaTeX parsing and citeproc-js provides CSL previews. APA 7th edition and Cite Them Right Harvard are bundled; independent CSL files can also be imported. Word stores recoverable citation syntax plus a visible, versioned bibliography-position marker containing the selected style identifier.
 
 ## Architecture and next steps
+
+The pane also has an **experimental / in development** local **Export to Quarto with Word Markdown** workflow:
+prepare a disposable DOCX copy, export that copy with Word for the web's native
+Markdown feature (where available), and import the exported Markdown to download
+a QMD package with bibliography sources, CSL, scoped filter, and supplied media.
+No Python or conversion server is required for this route. Automated integration
+tests currently use Pandoc as a stand-in; native Word Markdown export still needs
+a real-host test. See [the Markdown export guide](docs/markdown-export.md).
+
+Export development is parked at the current prototype. The next priority is the
+colleague pilot in Word for the web, using the hosted add-in, short install guide,
+and fictional sample files. A one-button exporter is not part of this phase.
 
 See `docs/technical_audit.md` for the upstream repository assessment, `docs/development.md` for reproducible setup, and `docs/word-host-test-matrix.md` for real-host evidence.
 

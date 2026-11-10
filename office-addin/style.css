@@ -9,6 +9,13 @@ header p { color:#425969; margin:0 0 8px; font-size:13px; }
 section { background:white; border:1px solid #dfe7ef; border-radius:9px; padding:16px; margin-top:14px; }
 h2 { font-size:14px; margin:0 0 13px; }
 .section-copy { margin:0; color:#425969; font-size:12px; line-height:1.45; }
+.feature-status { display:inline-block; margin-top:5px; padding:3px 6px; border-radius:4px; background:#fff1cd; color:#705000; font-size:10px; font-weight:600; }
+.experimental-tools { margin-top:12px; }
+.experimental-tools summary { cursor:pointer; font-size:12px; font-weight:600; color:#425969; }
+.experimental-tools[open] summary { margin-bottom:12px; }
+.button-link { display:block; padding:12px; border-radius:5px; background:#174f79; color:#fff; text-decoration:none; font-weight:600; text-align:center; }
+.pilot-steps { padding-left:20px; font-size:13px; line-height:1.55; }
+.pilot-steps li + li { margin-top:10px; }
 label { display:block; font-size:12px; font-weight:600; margin:12px 0 5px; }
 input, select { background:#fff; border:1px solid #abbccc; border-radius:5px; padding:9px; width:100%; font-size:13px; color:#223847; }
 input[type=file] { padding:8px 0; border:0; }
@@ -40,4 +47,8 @@ button.secondary { margin-top:0; color:#174f79; background:#e7f0f7; border:1px s
 button:disabled { opacity:.5; cursor:not-allowed; }
 #status { margin:8px 0 0; font-size:12px; min-height:18px; }
 #status.error { color:#b52a29; }
+#quarto-export-status { font-size:12px; }
+#quarto-export-status.error { color:#b52a29; }
+.file-picker-status { color:#b52a29; }
+[hidden] { display:none !important; }
 footer { padding:16px 4px; color:#657584; font-size:11px; line-height:1.5; }

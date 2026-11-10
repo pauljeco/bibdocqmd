@@ -10,17 +10,41 @@
   <main>
     <header>
       <div class="eyebrow">bibdocqmd / HOSTED PILOT</div>
-      <h1>Quarto-native citations in Word</h1>
-      <p>This is the static pilot host for the bibdocqmd Office add-in.</p>
+      <h1>Use bibdocqmd in Word for the web</h1>
+      <p>Add citations and generate references from your BibTeX files. Start with a small pilot in your browser.</p>
     </header>
     <section>
-      <h2>Install the pilot manifest</h2>
-      <p>Download <a href="manifest.xml" download>the bibdocqmd pilot manifest</a>, then upload it through Word's add-in interface.</p>
-      <p>The pilot reads bibliography files selected in the task pane. It does not upload or store their contents.</p>
+      <h2>1. Install in Word for the web</h2>
+      <a class="button-link" href="manifest.xml" download="bibdocqmd.xml">Download the add-in file</a>
+      <ol class="pilot-steps">
+        <li>Download the add-in file above. Keep it as an XML file.</li>
+        <li>Open a document in <a href="https://www.office.com/launch/word" target="_blank" rel="noopener noreferrer">Word for the web</a>.</li>
+        <li>Choose <strong>Home → Add-ins → More Settings → Upload My Add-in</strong>. Select the downloaded XML file and choose <strong>Upload</strong>. Menu labels can vary.</li>
+        <li>Open the bibdocqmd pane using its ribbon button or Word's Add-ins menu.</li>
+      </ol>
+      <p>No developer tools, local server, or certificate setup is needed on your computer.</p>
+      <small>If Upload My Add-in is missing, your organization may restrict custom add-ins. This page cannot change that setting. See <a href="https://learn.microsoft.com/en-us/office/dev/add-ins/testing/sideload-office-add-ins-for-testing">Microsoft's installation instructions</a>.</small>
+    </section>
+    <section>
+      <h2>2. Try the sample</h2>
+      <p>Download the <a href="demo.docx" download>sample Word document</a> and its <a href="demo.bib" download>matching bibliography</a>. These contain fictional demonstration references.</p>
+      <ol class="pilot-steps">
+        <li>Open the sample DOCX in Word for the web, then open bibdocqmd.</li>
+        <li>Under <strong>Select BibTeX libraries</strong>, choose <strong>demo.bib</strong>.</li>
+        <li>Try <strong>Show formatted citations</strong> and <strong>Show editable keys</strong>.</li>
+        <li>To add references, put the cursor at the end, choose <strong>Entire document → Insert marker</strong>, then <strong>Update in Word</strong>.</li>
+      </ol>
+    </section>
+    <section>
+      <h2>3. Use your own bibliography</h2>
+      <p>Select your .bib file, search for a citation key, and choose <strong>Insert new</strong>. To edit a citation, place the cursor inside it and use <strong>Load selected citation</strong>, then <strong>Update selected</strong>.</p>
+      <p>After reopening Word, select local bibliography files again. The document keeps citation identities and references; the add-in does not embed your whole local bibliography.</p>
+      <p>Selected bibliography files are read locally in the pane. bibdocqmd does not upload their contents to its host.</p>
+      <small>QMD export is experimental / in development and currently on hold. Focus this pilot on inserting, editing, saving/reopening, and updating citations and bibliographies. Simultaneous coauthoring remains unverified.</small>
     </section>
     <section>
       <h2>Project source</h2>
-      <p>Development history, documentation, licensing, and issue tracking are available in the <a href="https://github.com/pauljeco/bibdocqmd">public bibdocqmd repository</a>.</p>
+      <p>For help, use the <a href="support.html">support page</a> or the <a href="https://github.com/pauljeco/bibdocqmd">project repository</a>. If reporting a problem, include your browser version and the action that failed.</p>
     </section>
   </main>
 </body>

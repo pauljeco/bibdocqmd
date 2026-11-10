@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/pages.yml'
       - 'office-addin/**'
+      - 'examples/bibword_demo.docx'
+      - 'examples/references.bib'
   workflow_dispatch:
 
 permissions:
@@ -43,17 +45,24 @@ jobs:
         run: |
           mkdir -p _site/dist
           cp office-addin/pilot.html _site/index.html
+          cp examples/bibword_demo.docx _site/demo.docx
+          cp examples/references.bib _site/demo.bib
           cp office-addin/taskpane.html _site/taskpane.html
+          cp office-addin/local-tools.html _site/local-tools.html
           cp office-addin/commands.html _site/commands.html
           cp office-addin/support.html _site/support.html
           cp office-addin/style.css _site/style.css
           cp office-addin/taskpane.js _site/taskpane.js
           cp office-addin/citation.js _site/citation.js
           cp office-addin/github-library.js _site/github-library.js
+          cp office-addin/file-picker.js _site/file-picker.js
+          cp office-addin/file-picker-dialog.html _site/file-picker-dialog.html
+          cp office-addin/file-picker-dialog.js _site/file-picker-dialog.js
           cp office-addin/icon-16.png _site/icon-16.png
           cp office-addin/icon-32.png _site/icon-32.png
           cp office-addin/icon-80.png _site/icon-80.png
           cp office-addin/dist/csl-engine.js _site/dist/csl-engine.js
+          cp office-addin/dist/markdown-export.js _site/dist/markdown-export.js
           cp office-addin/manifest.pages.xml _site/manifest.xml
 
       - name: Configure GitHub Pages

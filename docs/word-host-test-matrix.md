@@ -63,3 +63,85 @@ identities after the confirmed close/reopen, refresh, and editing workflow.
 Try 0, 0.75, and 1.27 cm, confirming that
 the first line of every reference starts at the same left margin and every
 wrapped line uses the selected indent. Record the host/build and save path.
+
+## Native Word Markdown export (implementation validation)
+
+The new two-stage pane workflow prepares a separate DOCX with protected citation
+and bibliography placeholders, then finalizes Word-exported Markdown as a QMD
+package. No connected Codex Word session was available during implementation.
+There is no real-host result for the native Markdown writer yet.
+
+Automated fixture results: the five-citation example DOCX was prepared, converted
+to GFM by Pandoc as a stand-in, finalized as QMD, parsed back into five Cite nodes
+including narrative and suppressed-author modes, and rendered with references.
+A two-chapter fixture rendered one scoped bibliography per marker using the
+existing Lua filter. Simulated pane tests verified local preparation/finalization
+downloads without calling Word mutation APIs. See `docs/markdown-export.md` for
+the workflow and validation boundaries.
+
+Pending real-host result: record Word build, platform, browser, source save/reopen
+path, prepared-DOCX inspection, native `.md` inspection, and final Quarto render.
+Check grouped citations with locators, formatted aliases, copied citations,
+multiple bibliography sources, custom CSL, chapter scopes, and supplied media.
+
+## File chooser investigation (2026-11-10)
+
+The user reported that all five Choose file controls stopped opening a dialog,
+including the existing bibliography and CSL controls. The exact Word build and
+desktop/web host were not supplied. No connected Word session was available for
+inspection; the underlying Word-host cause is unconfirmed.
+
+File inputs now synchronously request `HTMLInputElement.showPicker()` during the
+click when available. Success cancels the duplicate native default; unsupported
+or blocked calls retain that default, and exceptions display feedback beside the
+affected input. Shared click handling leaves file inputs alone. A local-tools
+browser link provides a separate page without Office.js; files must be selected
+again there, and no browser-to-Word file transfer is claimed.
+
+Automated tests cover all five inputs, synchronous activation, older-webview
+fallback, blocked-picker feedback, cancellation, disabled inputs, browser-mode
+startup, and the Office browser-opening API/fallback. A headless Chrome
+157.0.8103.39 smoke check on Windows observed exactly one intercepted
+`Page.fileChooserOpened` event for each input: multiple selection for `.bib`,
+single selection for CSL/DOCX/preparation ZIP/Markdown. No runtime exceptions were
+reported. This checks browser picker activation, not a visible OS dialog or
+Microsoft Word. Word-host retesting remains pending.
+
+### Desktop Word follow-up (2026-11-10)
+
+The user confirmed that the embedded picker still failed after reloading and
+showed a separate file-selection window stuck at "Connecting to Word". Inspection
+of the live desktop pane confirmed the localhost assets and the absence of a
+JavaScript exception during a pane chooser request. A syntax error in the newly
+added dialog script prevented it from initializing; this was corrected and the
+actual script is now executed by a regression test, in addition to syntax checks.
+
+Windows desktop now routes file-input clicks through a same-origin Office dialog
+with an unmodified native input. Files return to the originating pane field as
+bounded, validated binary chunks; origin, transfer token, sequence, declared
+sizes, and completion are checked before a FileList is assigned and one change
+event is dispatched. Native browser and non-PC paths retain their previous
+selection behavior. The task pane and dialog assets are deployed together.
+
+Real-host environment: Word desktop **16.0.20527.20150**, Windows **25H2 build
+26200.9711**, embedded Edge WebView2 **157.0.4341.42**, localhost HTTPS development
+manifest. The Word debugging connection on port 9229 was used for inspection.
+
+Observed results:
+
+- The corrected Office dialog initialized with enabled file and Cancel controls.
+- A native Windows **Open** dialog was visibly present after requesting file
+  selection from that Office dialog (verified through its Windows dialog handle).
+- `examples/bibword_demo.docx` (37,540 bytes, fictional demonstration content) was
+  assigned to the dialog input through CDP, transferred through Office's message
+  bridge, and read back from the originating task-pane FileList. SHA-256 matched
+  the original fixture. This verifies the actual Office transfer route but uses
+  automated file assignment rather than automating the OS filename selection.
+- The export input's previous FileList was restored after the fixture test, and
+  the temporary dialog/chooser windows were cancelled. The Word document was not
+  edited by these picker tests.
+
+Save/reopen path and downloaded user-DOCX inspection were not exercised in this
+picker-only run. Native Word Markdown export was not exercised. The earlier
+browser-only chooser test must not be taken as validation of the embedded pane's
+native picker, which remained unsuccessful in the user's desktop run.

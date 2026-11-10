@@ -9,6 +9,7 @@ htmlcov/
 
 # Node / Office add-in development
 office-addin/node_modules/
+office-addin/local-tools.html
 office-addin/*.crt
 office-addin/*.key
 office-addin/*.pem
